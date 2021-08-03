@@ -45,10 +45,10 @@ class GradientBoostingEnsemble:
   def __init__(self,
                nb_trees: int,
                nb_trees_per_ensemble: int,
-               clipping_bound: float,
                n_classes: Optional[int] = None,
                max_depth: int = 6,
-               privacy_budget: float = 1.0,
+               privacy_budget: Optional[float] = None,
+               clipping_bound: Optional[float] = None,
                learning_rate: float = 0.1,
                early_stop: int = 5,
                max_leaves: Optional[int] = None,
@@ -73,8 +73,8 @@ class GradientBoostingEnsemble:
       privacy_budget (float): Optional. The privacy budget available for the
           model. Default is 1.0. If `None`, do not apply differential privacy.
       clipping_bound (float): Optional. The clipping bound used to limit the
-          influence of data points on the loss function, in context of the
-          AboveThreshold mechanism.
+          influence of data points on the loss function If `None`, do not
+          perform clipping.
       learning_rate (float): Optional. The learning rate. Default is 0.1.
       early_stop (int): Optional. If the rmse doesn't decrease for <int>
           consecutive rounds, abort training. Default is 5.
@@ -129,20 +129,23 @@ class GradientBoostingEnsemble:
 
     if self.privacy_budget is None or self.privacy_budget == 0.0:
       logger.info(
-        'No privacy budget provided. Differential privacy is disabled. '
-        'Clipping_bound set to None.'
+        "No privacy budget provided. Differential privacy is disabled."
       )
       self.use_dp = False
-      self.clipping_bound = None
     else:
       if self.privacy_budget > 100:
         logger.warning(
-          'High privacy budget detected (budget > 100). This affects the '
-          'exponential mechanism badly. Note that the budget is limited to 1000 '
-          'anyway.'
+          "High privacy budget detected (budget > 100). This affects the "
+          "exponential mechanism badly. Note that the budget is limited to 1000 "
+          "anyway."
         )
       self.use_dp = True
       self.privacy_budget = min(self.privacy_budget, 1000)
+
+    if self.clipping_bound is None:
+      logger.info(
+        "No clipping bound provided. Clipping is disabled."
+      )
 
     if self.use_3_trees and self.use_bfs:
       # Since we're building 3-node trees it's the same anyways.
@@ -386,7 +389,7 @@ class GradientBoostingEnsemble:
           k_trees.append(tree)
       self.trees.append(k_trees)
 
-      # Depending on initialization of `loss_`, this might be clipped.
+      # Depending on clipping_bound, the loss might be clipped.
       current_loss = self.loss_(
         y = y_test,
         raw_predictions = self.Predict(X_test)
@@ -395,7 +398,7 @@ class GradientBoostingEnsemble:
                   'loss so far: {2:f}'.format(tree_index, current_loss, prev_loss))
 
       new_tree_is_usefull = current_loss < prev_loss
-      if self.use_dp:
+      if self.use_dp and self.clipping_bound is not None:
         lap_noise = np.random.laplace(
           scale = self.clipping_bound / (len(y_test) * self.privacy_budget)
         )
@@ -521,9 +524,6 @@ class GradientBoostingEnsemble:
 
 def _loss_initialisation(n_classes, clipping_bound):
   if clipping_bound is None:
-    logger.info(
-      "Loss will not be clipped."
-    )
     if n_classes is None:
       logger.info('Number of classes is None. Selecting LSE loss.')
       loss = losses.LOSS_FUNCTIONS['ls']()
