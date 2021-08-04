@@ -50,8 +50,9 @@ class DPGBDT(BaseEstimator):  # type: ignore
       clipping_bound (float): Optional. The clipping bound used to limit the
           influence of data points on the loss function If `None`, do not
           perform clipping.
-      early_stop (int): Optional. If the rmse doesn't decrease for <int>
-          consecutive rounds, abort training. Default is 5.
+      early_stop (int): Optional. If the ensemble loss doesn't decrease for
+          <int> consecutive rounds, abort training. Default is 5. Has no effect,
+          if `only_good_trees` is False.
       n_classes (int): Number of classes. Triggers regression (None) vs
           classification.
       max_leaves (int): Optional. The max number of leaf nodes for the trees.
