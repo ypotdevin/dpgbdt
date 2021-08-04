@@ -210,12 +210,6 @@ class GradientBoostingEnsemble:
     logger.debug('Training initialized with score: {}'.format(self.init_score))
     update_gradients = True
 
-    # TODO Why is `X_train` used only once (trivially) and `y_train` not at all?
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=0)
-    logger.debug('Using {0:d} instances for training and {1:d} instances for '
-                 'validation'.format(len(X_train), len(X_test)))
-
     # Number of ensembles in the model
     nb_ensembles = int(np.ceil(self.nb_trees / self.nb_trees_per_ensemble))
     logger.info('Model will have {0:d} ensembles'.format(nb_ensembles))
@@ -397,8 +391,8 @@ class GradientBoostingEnsemble:
 
       # Depending on clipping_bound, the loss might be clipped.
       current_loss = self.loss_(
-        y = y_test,
-        raw_predictions = self.Predict(X_test)
+        y = y,
+        raw_predictions = self.Predict(X)
       )
       logger.info('Decision tree {0:d} fit. Current loss: {1:f} - Best '
                   'loss so far: {2:f}'.format(tree_index, current_loss, prev_loss))
@@ -406,7 +400,7 @@ class GradientBoostingEnsemble:
       new_tree_is_usefull = True # The default
       if self.use_dp and self.clipping_bound is not None and self.only_good_trees:
         lap_noise = np.random.laplace(
-          scale = self.clipping_bound / (len(y_test) * self.privacy_budget)
+          scale = self.clipping_bound / (len(y) * self.privacy_budget)
         )
         new_tree_is_usefull = current_loss + lap_noise < prev_loss
       elif self.only_good_trees:
