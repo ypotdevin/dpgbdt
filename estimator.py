@@ -24,6 +24,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
                learning_rate: float,
                privacy_budget: Optional[float] = None,
                clipping_bound : Optional[float] = None,
+               only_good_trees: bool = True,
                early_stop: int = 5,
                n_classes: Optional[int] = None,
                max_leaves: Optional[int] = None,
@@ -92,6 +93,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.leaf_clipping = leaf_clipping
     self.learning_rate = learning_rate
     self.privacy_budget = privacy_budget
+    self.only_good_trees = only_good_trees
     self.early_stop = early_stop
     self.n_classes = n_classes
     self.balance_partition = balance_partition
@@ -126,6 +128,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
         privacy_budget=self.privacy_budget,
         clipping_bound=self.clipping_bound,
         learning_rate=self.learning_rate,
+        only_good_trees=self.only_good_trees,
         early_stop=self.early_stop,
         max_leaves=self.max_leaves,
         min_samples_split=self.min_samples_split,
@@ -183,6 +186,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
         'nb_trees_per_ensemble': self.nb_trees_per_ensemble,
         'max_depth': self.max_depth,
         'learning_rate': self.learning_rate,
+        'only_good_trees': self.only_good_trees,
         'early_stop': self.early_stop,
         'n_classes': self.n_classes,
         'max_leaves': self.max_leaves,
