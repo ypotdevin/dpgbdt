@@ -50,6 +50,7 @@ class GradientBoostingEnsemble:
                privacy_budget: Optional[float] = None,
                clipping_bound: Optional[float] = None,
                learning_rate: float = 0.1,
+               only_good_trees: bool = True,
                early_stop: int = 5,
                max_leaves: Optional[int] = None,
                min_samples_split: int = 2,
@@ -76,8 +77,12 @@ class GradientBoostingEnsemble:
           influence of data points on the loss function If `None`, do not
           perform clipping.
       learning_rate (float): Optional. The learning rate. Default is 0.1.
-      early_stop (int): Optional. If the rmse doesn't decrease for <int>
-          consecutive rounds, abort training. Default is 5.
+      only_good_trees (bool): Optional. If `True`, keep only trees that enhance
+          the performance of the ensemble. Otherwise keep every tree. Default is
+          True.
+      early_stop (int): Optional. If the ensemble loss doesn't decrease for
+          <int> consecutive rounds, abort training. Default is 5. Has no effect,
+          if `only_good_trees` is False.
       max_leaves (int): Optional. The max number of leaf nodes for the trees.
           Tree will grow in a best-leaf first fashion until it contains
           max_leaves or until it reaches maximum depth, whichever comes first.
@@ -114,6 +119,7 @@ class GradientBoostingEnsemble:
     self.privacy_budget = privacy_budget
     self.clipping_bound = clipping_bound
     self.learning_rate = learning_rate
+    self.only_good_trees = only_good_trees
     self.early_stop = early_stop
     self.max_leaves = max_leaves
     self.min_samples_split = min_samples_split
@@ -397,12 +403,14 @@ class GradientBoostingEnsemble:
       logger.info('Decision tree {0:d} fit. Current loss: {1:f} - Best '
                   'loss so far: {2:f}'.format(tree_index, current_loss, prev_loss))
 
-      new_tree_is_usefull = current_loss < prev_loss
-      if self.use_dp and self.clipping_bound is not None:
+      new_tree_is_usefull = True # The default
+      if self.use_dp and self.clipping_bound is not None and self.only_good_trees:
         lap_noise = np.random.laplace(
           scale = self.clipping_bound / (len(y_test) * self.privacy_budget)
         )
         new_tree_is_usefull = current_loss + lap_noise < prev_loss
+      elif self.only_good_trees:
+        new_tree_is_usefull = current_loss < prev_loss
 
       if new_tree_is_usefull:
         update_gradients = True
