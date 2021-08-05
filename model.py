@@ -338,6 +338,7 @@ class GradientBoostingEnsemble:
               max_depth=self.max_depth,
               max_leaves=self.max_leaves,
               min_samples_split=self.min_samples_split,
+              leaf_clipping =self.leaf_clipping,
               use_bfs=self.use_bfs,
               use_3_trees=self.use_3_trees,
               use_decay=self.use_decay,
