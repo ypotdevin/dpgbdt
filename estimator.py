@@ -3,14 +3,15 @@
 # ypo@informatik.uni-kiel.de
 """Estimator wrapper around the implementation."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
-# pylint: disable=import-error
 from sklearn.base import BaseEstimator
-# pylint: enable=import-error
 
+from losses import ClassificationLossFunction, LossFunction
 from model import GradientBoostingEnsemble
+
+
 
 
 class DPGBDT(BaseEstimator):  # type: ignore
@@ -23,8 +24,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
                max_depth: int,
                learning_rate: float,
                privacy_budget: Optional[float] = None,
-               clipping_bound : Optional[float] = None,
-               only_good_trees: bool = True,
+               loss: Union[LossFunction, ClassificationLossFunction] = None,
+               use_new_tree: Callable[[Any, Any, float, float], bool] = None,
                early_stop: int = 5,
                n_classes: Optional[int] = None,
                max_leaves: Optional[int] = None,
@@ -47,12 +48,20 @@ class DPGBDT(BaseEstimator):  # type: ignore
       learning_rate (float): The learning rate.
       privacy_budget (float): Optional. The privacy budget to use. If `None`, do
           not apply differential privacy.
-      clipping_bound (float): Optional. The clipping bound used to limit the
-          influence of data points on the loss function If `None`, do not
-          perform clipping.
+      loss (Union[LossFunction, ClassificationLossFunction]): A loss object
+          (preferably from the `losses` module), which defines primarily how to
+          compute the loss of the ensemble (e.g. by using regular MSE, clipped
+          MSE, median, DP-median, ...). Default is (leaky) LSE.
+      use_new_tree (Callable[[Any, Any, float, float], bool]): A predicate which
+          compares the previous loss (first float) to the current loss (second
+          float; including the newly created decision tree) and decides whether
+          to keep the new tree (True) or to discard it (False). It may base its
+          decision additionally on the arguments (first and second Any) provided
+          to the loss function, which calculated the previous and the current
+          loss mentioned above. Default predicate returns always True.
       early_stop (int): Optional. If the ensemble loss doesn't decrease for
           <int> consecutive rounds, abort training. Default is 5. Has no effect,
-          if `only_good_trees` is False.
+          if `only_good_trees` is False or if DP is disabled.
       n_classes (int): Number of classes. Triggers regression (None) vs
           classification.
       max_leaves (int): Optional. The max number of leaf nodes for the trees.
@@ -84,7 +93,6 @@ class DPGBDT(BaseEstimator):  # type: ignore
           is -1, meaning only warnings and above are displayed. 0 is info,
           1 is debug.
     """
-    self.clipping_bound = clipping_bound
     self.nb_trees = nb_trees
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
     self.max_depth = max_depth
@@ -94,7 +102,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.leaf_clipping = leaf_clipping
     self.learning_rate = learning_rate
     self.privacy_budget = privacy_budget
-    self.only_good_trees = only_good_trees
+    self.loss = loss
+    self.use_new_tree = use_new_tree
     self.early_stop = early_stop
     self.n_classes = n_classes
     self.balance_partition = balance_partition
@@ -127,9 +136,9 @@ class DPGBDT(BaseEstimator):  # type: ignore
         n_classes=self.n_classes,
         max_depth=self.max_depth,
         privacy_budget=self.privacy_budget,
-        clipping_bound=self.clipping_bound,
+        loss=self.loss,
+        use_new_tree=self.use_new_tree,
         learning_rate=self.learning_rate,
-        only_good_trees=self.only_good_trees,
         early_stop=self.early_stop,
         max_leaves=self.max_leaves,
         min_samples_split=self.min_samples_split,
@@ -182,12 +191,12 @@ class DPGBDT(BaseEstimator):  # type: ignore
     """Stub for sklearn cross validation"""
     return {
         'privacy_budget': self.privacy_budget,
-        'clipping_bound': self.clipping_bound,
+        'loss': self.loss,
         'nb_trees': self.nb_trees,
         'nb_trees_per_ensemble': self.nb_trees_per_ensemble,
         'max_depth': self.max_depth,
         'learning_rate': self.learning_rate,
-        'only_good_trees': self.only_good_trees,
+        'use_new_tree': self.use_new_tree,
         'early_stop': self.early_stop,
         'n_classes': self.n_classes,
         'max_leaves': self.max_leaves,
