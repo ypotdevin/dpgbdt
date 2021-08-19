@@ -60,3 +60,6 @@ target/
 venv/
 .mypy_cache/
 .DS_STORE
+data/
+.vscode/
+.ipynb_checkpoints/
