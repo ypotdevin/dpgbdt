@@ -9,10 +9,9 @@ from sklearn.ensemble._gb_losses import (BinomialDeviance,
                                          LeastSquaresError, LossFunction,
                                          MultinomialDeviance)
 
-import logger as logging
+import logging
 
-logging.SetUpLogger(__name__)
-logger = logging.GetLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def keep_each_tree_predicate(
