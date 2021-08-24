@@ -15,12 +15,11 @@ import numpy as np
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator
 
-import logger as logging
+import logging
 from losses import (ClassificationLossFunction, LeastSquaresError,
                     LossFunction, keep_each_tree_predicate)
 
-logging.SetUpLogger(__name__)
-logger = logging.GetLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class GradientBoostingEnsemble:
@@ -390,13 +389,22 @@ class GradientBoostingEnsemble:
       self.trees.append(k_trees)
 
       raw_predictions = self.Predict(X)
-      current_loss = self.loss(y,raw_predictions)
-      logger.info('Decision tree {0:d} fit. Current loss: {1:f} - Best '
-                  'loss so far: {2:f}'.format(tree_index, current_loss, prev_loss))
+      current_loss = self.loss(y, raw_predictions)
+      logger.info(
+        '#loss_evolution# --- fitting decision tree %d; previous loss: %f; '
+        'current loss: %f',
+        tree_index,
+        prev_loss,
+        current_loss
+      )
 
       new_tree_is_usefull = self.use_new_tree(y, raw_predictions, prev_loss, current_loss)
 
       if new_tree_is_usefull:
+        logger.info(
+          '#tree_evolution# --- ensemble includes decision tree %d',
+          tree_index
+        )
         update_gradients = True
         prev_loss = current_loss
         # Remove the selected rows from the ensemble's dataset
@@ -416,6 +424,11 @@ class GradientBoostingEnsemble:
         # This tree doesn't improve overall prediction quality, removing from
         # model
         # not reusing gradients in multi-class as they are class-dependent
+        logger.info(
+          '#tree_evolution# --- ensemble excludes decision tree %d',
+          tree_index
+        )
+
         update_gradients = self.loss.is_multi_class
         self.trees.pop()
         if not self.use_dp:
