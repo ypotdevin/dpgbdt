@@ -58,8 +58,7 @@ class GradientBoostingEnsemble:
                use_3_trees: bool = False,
                use_decay: bool = False,
                cat_idx: Optional[List[int]] = None,
-               num_idx: Optional[List[int]] = None,
-               verbosity: int = -1) -> None:
+               num_idx: Optional[List[int]] = None) -> None:
     """Initialize the GradientBoostingEnsemble class.
 
     Args:
@@ -110,9 +109,6 @@ class GradientBoostingEnsemble:
           decaying factor.
       cat_idx (List): Optional. List of indices for categorical features.
       num_idx (List): Optional. List of indices for numerical features.
-      verbosity (int): Optional. Verbosity level for debug messages. Default
-          is -1, meaning only warnings and above are displayed. 0 is info,
-          1 is debug.
       """
     self.nb_trees = nb_trees
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
@@ -133,7 +129,6 @@ class GradientBoostingEnsemble:
     self.use_decay = use_decay
     self.cat_idx = cat_idx
     self.num_idx = num_idx
-    self.verbosity = verbosity
 
     if self.privacy_budget is None or self.privacy_budget == 0.0:
       logger.info(
@@ -172,13 +167,6 @@ class GradientBoostingEnsemble:
 
     # Initial score
     self.init_score = None
-
-    if self.verbosity <= -1:
-      logger.setLevel(logging.WARNING)
-    elif self.verbosity == 0:
-      logger.setLevel(logging.INFO)
-    else:
-      logger.setLevel(logging.DEBUG)
 
     # This handles attribute comparison depending on the attribute's nature
     self.feature_to_op = defaultdict(
