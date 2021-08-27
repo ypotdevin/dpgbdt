@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ypo@informatik.uni-kiel.de
 
 from typing import Optional
@@ -148,11 +147,13 @@ class RootExpQLeastSquaresError(LeastSquaresError):
             lower_bound,
             upper_bound,
             privacy_budget,
+            q,
             random_seed = None):
         super().__init__()
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.privacy_budget = privacy_budget
+        self.q = q
         self.random_seed = random_seed
 
     def __call__(self, y, raw_predictions, sample_weight = None):
@@ -167,7 +168,7 @@ class RootExpQLeastSquaresError(LeastSquaresError):
                 obj = (0, len(abs_devs)),
                 values = [self.lower_bound, self.upper_bound]
             )
-            med = self._dp_median(abs_devs)
+            med = self._exp_q(abs_devs, self.q)
             logger.debug(
                 "True median: %f; DP median: %f", np.median(abs_devs), med
             )
@@ -178,23 +179,23 @@ class RootExpQLeastSquaresError(LeastSquaresError):
                 "not None."
             )
 
-    def _dp_median(self, x):
+    def _exp_q(self, x, q = 0.5):
         """Assume that `x` = [x_min, x_1, x_2, ..., x_n, x_max] and that `x` is
         sorted. Return the median of `x` in a differentially private manner."""
         rng = np.random.default_rng(seed = self.random_seed)
         probabilities = self._probabilities(
-            utilities = self._utilities(x),
+            utilities = self._utilities(x, q),
             bin_sizes = self._bin_sizes(x),
             privacy_budget = self.privacy_budget
         )
         i = rng.choice(np.arange(len(x) - 1), p = probabilities)
         return rng.uniform(low = x[i], high = x[i + 1])
 
-    def _utilities(self, x):
+    def _utilities(self, x, q):
         """Assume that x has length n + 2 (i.e. it contains n elements of
         interest and the lower and upper bound. Return n + 1 utilities."""
         _x = np.arange(len(x) - 1)
-        median_position = np.floor_divide(len(x), 2)
+        median_position = np.floor(len(x) * q)
         utilities = np.where(
             _x < median_position,
             _x + 1 - median_position,
@@ -209,7 +210,10 @@ class RootExpQLeastSquaresError(LeastSquaresError):
         return bin_sizes[1:]
 
     def _probabilities(self, utilities, bin_sizes, privacy_budget):
-        ps = bin_sizes * np.exp(privacy_budget / 2 * utilities)
+        utility_ = privacy_budget / 2 * utilities
+        # This is for numerical stability:
+        max_utility = utility_.max()
+        ps = bin_sizes * np.exp(utility_ - max_utility)
         ps /= ps.sum()
         return ps
 
@@ -236,6 +240,9 @@ class RootMedianLeastSquaresError(LeastSquaresError):
                 "RMedLSE is not implemented if argument `sample_weight` is "
                 "not None."
             )
+
+    def __repr__(self) -> str:
+        return "RootMedianLeastSquaresError"
 
 
 LOSS_FUNCTIONS = {
