@@ -30,24 +30,25 @@ def useful_tree_predicate(
         current_loss: float) -> bool:
     """This predicated tells whether `current_loss < previous_loss`.
 
-    This implies that only usefull trees (the ones that lower the overall loss)
-    will be added to the ensemble. Trees that increase the loss will be
-    discarded.
+    This implies that only usefull trees (the ones that lower the
+    overall loss) will be added to the ensemble. Trees that increase the
+    loss will be discarded.
     """
     return current_loss < previous_loss
 
 class ClippedLeastSquaresError(LeastSquaresError):
     """Loss function for clipped least squares (LS) estimation.
 
-    This extension overrides the `LeastSquaresError` method __call__() by
-    clipping the squared deviations before summing them.
-    It extends `LeastSquaresError`'s constructor by adding the `clipping_bound`
-    member.
+    This extension overrides the `LeastSquaresError` method __call__()
+    by clipping the squared deviations before summing them.
+    It extends `LeastSquaresError`'s constructor by adding the
+    `clipping_bound` member.
 
     Parameters
     ----------
     clipping_bound : float
-        The bound used to clip the squared deviations from above and below.
+        The bound used to clip the squared deviations from above and
+        below.
     """
 
     def __init__(self, clipping_bound):
@@ -86,10 +87,10 @@ class ClippedLeastSquaresError(LeastSquaresError):
 class ClippedLSEPredicate():
     """This predicate realises the AboveThreshold mechanism.
 
-    It compares the noisy current loss with the previous loss. Basically it
-    evaluates `current_loss + noise < previous_loss`, where the noise is based
-    on `privacy_budget`, `clipping_bound` and the length of its calling argument
-    `y`.
+    It compares the noisy current loss with the previous loss. Basically
+    it evaluates `current_loss + noise < previous_loss`, where the noise
+    is based on `privacy_budget`, `clipping_bound` and the length of its
+    calling argument `y`.
     """
     def __init__(
             self,
@@ -162,7 +163,12 @@ class RootExpQLeastSquaresError(LeastSquaresError):
             #           = median(|x_1|, |x_2|, ...,  |x_n|)
             abs_devs = np.abs(y - raw_predictions.ravel())
             abs_devs = np.sort(abs_devs)
-            assert self.lower_bound <= abs_devs[0] <= abs_devs[-1] <= self.upper_bound
+            assert (
+                self.lower_bound
+                <= abs_devs[0]
+                <= abs_devs[-1]
+                <= self.upper_bound
+            )
             abs_devs = np.insert(
                 abs_devs,
                 obj = (0, len(abs_devs)),
@@ -180,8 +186,9 @@ class RootExpQLeastSquaresError(LeastSquaresError):
             )
 
     def _exp_q(self, x, q = 0.5):
-        """Assume that `x` = [x_min, x_1, x_2, ..., x_n, x_max] and that `x` is
-        sorted. Return the median of `x` in a differentially private manner."""
+        """Assume that `x` = [x_min, x_1, x_2, ..., x_n, x_max] and that
+        `x` is sorted. Return the median of `x` in a differentially
+        private manner."""
         rng = np.random.default_rng(seed = self.random_seed)
         probabilities = self._probabilities(
             utilities = self._utilities(x, q),
@@ -192,8 +199,9 @@ class RootExpQLeastSquaresError(LeastSquaresError):
         return rng.uniform(low = x[i], high = x[i + 1])
 
     def _utilities(self, x, q):
-        """Assume that x has length n + 2 (i.e. it contains n elements of
-        interest and the lower and upper bound. Return n + 1 utilities."""
+        """Assume that x has length n + 2 (i.e. it contains n elements
+        of interest and the lower and upper bound. Return n + 1
+        utilities."""
         _x = np.arange(len(x) - 1)
         median_position = np.floor(len(x) * q)
         utilities = np.where(
@@ -204,8 +212,8 @@ class RootExpQLeastSquaresError(LeastSquaresError):
         return utilities
 
     def _bin_sizes(self, x):
-        """Assume that `x` = [x_min, x_1, x_2, ..., x_n, x_max] and that `x` is
-        sorted. Return n + 1 bin sizes"""
+        """Assume that `x` = [x_min, x_1, x_2, ..., x_n, x_max] and that
+        `x` is sorted. Return n + 1 bin sizes"""
         bin_sizes = x - np.roll(x, 1)
         return bin_sizes[1:]
 
