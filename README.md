@@ -1,6 +1,6 @@
 # Differentially Private Gradient Boosted Decision Trees
 
-An implementation of https://arxiv.org/pdf/1911.04209.pdf.
+An implementation of https://arxiv.org/abs/1911.04209.
 
 See `example.py` for usage instructions.
 
