@@ -220,9 +220,15 @@ class GradientBoostingEnsemble:
     for tree_index in range(self.nb_trees):
       # Compute sensitivity
       delta_g = 3 * np.square(self.l2_threshold)
-      delta_v = min(self.l2_threshold / (1 + self.l2_lambda),
-                    2 * self.l2_threshold * math.pow(
-                      (1 - self.learning_rate), tree_index))
+      delta_v = self.l2_threshold / (1 + self.l2_lambda),
+      if self.leaf_clipping:
+        delta_v = min(
+            delta_v,
+            2 * self.l2_threshold * math.pow(
+                (1 - self.learning_rate),
+                tree_index
+            )
+        )
 
       current_tree_for_ensemble = tree_index % self.nb_trees_per_ensemble
       if current_tree_for_ensemble == 0:
