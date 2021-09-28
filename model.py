@@ -302,16 +302,20 @@ class GradientBoostingEnsemble:
           # a row has to be used on neither of all K trees to be of effect
           # which is very unlikely in practice.
           if self.gradient_filtering and not self.loss.is_multi_class:
-            if tree_index > 0:
-              norm_1_gradient = np.abs(gradients_tree)
-              rows_gbf = norm_1_gradient <= self.l2_threshold
-              X_tree = X_tree[rows_gbf, :]
-              y_tree = y_tree[rows_gbf]
-              gradients_tree = gradients_tree[rows_gbf]
+            norm_1_gradient = np.abs(gradients_tree)
+            rows_gbf = norm_1_gradient <= self.l2_threshold
+            X_tree = X_tree[rows_gbf, :]
+            y_tree = y_tree[rows_gbf]
+            gradients_tree = gradients_tree[rows_gbf]
 
             # Get back the original row index from the first filtering
             selected_rows = rows[rows_gbf] if tree_index > 0 else rows
           else:
+            gradients_tree = np.clip(
+                gradients_tree,
+                -self.l2_threshold,
+                self.l2_threshold
+            )
             selected_rows = rows
 
           logger.debug('Tree {0:d} will receive a budget of epsilon={1:f} and '
