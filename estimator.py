@@ -37,8 +37,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
                use_3_trees: bool = False,
                use_decay: bool = False,
                cat_idx: Optional[List[int]] = None,
-               num_idx: Optional[List[int]] = None,
-               verbosity: int = -1) -> None:
+               num_idx: Optional[List[int]] = None) -> None:
     """Initialize the wrapper.
 
     Args:
@@ -89,9 +88,6 @@ class DPGBDT(BaseEstimator):  # type: ignore
           decaying factor.
       cat_idx (List): Optional. List of indices for categorical features.
       num_idx (List): Optional. List of indices for numerical features.
-      verbosity (int): Optional. Verbosity level for debug messages. Default
-          is -1, meaning only warnings and above are displayed. 0 is info,
-          1 is debug.
     """
     self.nb_trees = nb_trees
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
@@ -112,7 +108,6 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.use_decay = use_decay
     self.cat_idx = cat_idx
     self.num_idx = num_idx
-    self.verbosity = verbosity
 
     self.model_ = None
     self.n_features_ = None
@@ -150,7 +145,6 @@ class DPGBDT(BaseEstimator):  # type: ignore
         use_decay=self.use_decay,
         cat_idx=self.cat_idx,
         num_idx=self.num_idx,
-        verbosity=self.verbosity
     )
     self.n_features_ = X.shape[1]
     return self.model_.Train(X, y)
@@ -208,8 +202,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
         'use_3_trees': self.use_3_trees,
         'use_decay': self.use_decay,
         'cat_idx': self.cat_idx,
-        'num_idx': self.num_idx,
-        'verbosity': self.verbosity
+        'num_idx': self.num_idx
     }
 
   def set_params(self,

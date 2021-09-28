@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ypo@informatik.uni-kiel.de
 
 from io import StringIO
@@ -17,11 +16,15 @@ def filter_lines(substring: str, lines: Iterable[str]) -> Iterable[str]:
         if substring in line:
             yield line
 
-def strip_prefix_from_lines(prefix: str, lines: Iterable[str]) -> Iterable[str]:
+def strip_prefix_from_lines(
+        prefix: str,
+        lines: Iterable[str]) -> Iterable[str]:
     for line in lines:
         yield line.removeprefix(prefix)
 
-def split_lines(separator: str, lines: Iterable[str]) -> Iterable[Sequence[str]]:
+def split_lines(
+        separator: str,
+        lines: Iterable[str]) -> Iterable[Sequence[str]]:
     for line in lines:
         yield line.split(sep = separator)
 
@@ -32,11 +35,17 @@ def process_parts(
     for parts in parts_iter:
         yield [processing_fun(part) for part in parts]
 
-def join_parts(parts_iter: Iterable[Sequence[str]], sep = ',') -> Iterable[str]:
+def join_parts(
+        parts_iter: Iterable[Sequence[str]],
+        sep = ',') -> Iterable[str]:
     for parts in parts_iter:
         yield sep.join(parts)
 
-def to_dataframe(lines: Iterable[str], names, index_col = None, sep = ','):
+def to_dataframe(
+        lines: Iterable[str],
+        names,
+        index_col = None,
+        sep = ',') -> pd.DataFrame:
     lines = StringIO('\n'.join(lines))
     df = pd.read_csv(
         lines,
