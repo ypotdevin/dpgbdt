@@ -9,11 +9,14 @@ import math
 import operator
 from collections import defaultdict
 from queue import Queue
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import numpy as np
+from numpy.lib.function_base import append
 from scipy.special import logsumexp
+from sklearn import model_selection
 from sklearn.base import BaseEstimator
+from sklearn.model_selection import train_test_split
 
 import logging
 from losses import (ClassificationLossFunction, LeastSquaresError,
@@ -220,7 +223,7 @@ class GradientBoostingEnsemble:
     for tree_index in range(self.nb_trees):
       # Compute sensitivity
       delta_g = 3 * np.square(self.l2_threshold)
-      delta_v = self.l2_threshold / (1 + self.l2_lambda),
+      delta_v = self.l2_threshold / (1 + self.l2_lambda)
       if self.leaf_clipping:
         delta_v = min(
             delta_v,
@@ -273,8 +276,8 @@ class GradientBoostingEnsemble:
                          'balance_partition=True or change your parameters.')
           continue
 
-        # Select <number_of_rows> rows at random from the ensemble dataset
-        rows = np.random.randint(len(X_ensemble), size=number_of_rows)
+        ### # Select <number_of_rows> rows at random from the ensemble dataset
+        ### rows = np.random.randint(len(X_ensemble), size=number_of_rows)
 
         # train for each class a separate tree on the same rows.
         # In regression or binary classification, K has been set to one.
@@ -293,34 +296,20 @@ class GradientBoostingEnsemble:
                       X_ensemble), kth_tree)  # type: ignore
 
           assert gradients is not None
-          gradients_tree = gradients[rows]
-          X_tree = X_ensemble[rows, :]
-          y_tree = y_ensemble[rows]
+          split_data = self._tree_data_sample_split(
+            gradients = gradients,
+            X_ensemble = X_ensemble,
+            y_ensemble = y_ensemble,
+            n_samples_per_tree = number_of_rows,
+          )
+          gradients_tree = split_data['gradients_tree']
+          X_tree = split_data['X_tree']
+          y_tree = split_data['y_tree']
 
-          # Gradient based data filtering
-          # On multi-class deactivated as gradients are reused thus
-          # a row has to be used on neither of all K trees to be of effect
-          # which is very unlikely in practice.
-          if self.gradient_filtering and not self.loss.is_multi_class:
-            norm_1_gradient = np.abs(gradients_tree)
-            rows_gbf = norm_1_gradient <= self.l2_threshold
-            X_tree = X_tree[rows_gbf, :]
-            y_tree = y_tree[rows_gbf]
-            gradients_tree = gradients_tree[rows_gbf]
-
-            # Get back the original row index from the first filtering
-            selected_rows = rows[rows_gbf] if tree_index > 0 else rows
-          else:
-            gradients_tree = np.clip(
-                gradients_tree,
-                -self.l2_threshold,
-                self.l2_threshold
-            )
-            selected_rows = rows
 
           logger.debug('Tree {0:d} will receive a budget of epsilon={1:f} and '
                        'train on {2:d} instances.'.format(
-              tree_index, tree_privacy_budget, len(X_ensemble)))
+              tree_index, tree_privacy_budget, len(X_tree)))
           # Fit a differentially private decision tree
           tree = DifferentiallyPrivateTree(
               tree_index,
@@ -389,14 +378,19 @@ class GradientBoostingEnsemble:
       raw_predictions = self.Predict(X)
       current_loss = self.loss(y, raw_predictions)
       logger.info(
-        '#loss_evolution# --- fitting decision tree %d; previous loss: %f; '
-        'current loss: %f',
-        tree_index,
-        prev_loss,
-        current_loss
+          '#loss_evolution# --- fitting decision tree %d; previous loss: %f; '
+          'current loss: %f',
+          tree_index,
+          prev_loss,
+          current_loss
       )
 
-      new_tree_is_usefull = self.use_new_tree(y, raw_predictions, prev_loss, current_loss)
+      new_tree_is_usefull = self.use_new_tree(
+          y,
+          raw_predictions,
+          prev_loss,
+          current_loss
+      )
 
       if new_tree_is_usefull:
         logger.info(
@@ -409,13 +403,15 @@ class GradientBoostingEnsemble:
         # The instances that were filtered out by GBF can still be used for the
         # training of the next trees
         if self.use_dp:
+          X_ensemble = split_data['X_ensemble']
+          y_ensemble = split_data['y_ensemble']
           logger.debug(
-              'Success fitting tree {0:d} on {1:d} instances. Instances left '
-              'for the ensemble: {2:d}'.format(
-                  tree_index, len(selected_rows), len(X_ensemble) - len(
-                      selected_rows)))
-          X_ensemble = np.delete(X_ensemble, selected_rows, axis=0)
-          y_ensemble = np.delete(y_ensemble, selected_rows)
+              'Success fitting tree %d on %d instances. Instances left '
+              'for the ensemble: %d',
+              tree_index,
+              len(X_tree),
+              len(X_ensemble)
+          )
         else:
           early_stop_round = self.early_stop
       else:
@@ -436,6 +432,121 @@ class GradientBoostingEnsemble:
             break
 
     return self
+
+  def _gradient_filtering_mask(self, data):
+      mask = (self.l2_threshold <= data) & (data <= self.l2_threshold)
+      return mask
+
+  def _partition(self, mask, data):
+      return (data[mask], data[~mask])
+
+  def _sample(
+          self,
+          accepted: np.array,
+          rejected: np.array,
+          n_samples: int,
+          post_processing: Optional[
+              Callable[[np.array], np.array]
+          ] = None,
+          seed: int = None
+      ) -> tuple[np.array, np.array]:
+      """Draw `n_samples` samples from `accepted` and `rejected`.
+
+      Prefer `accepted`; draw from `rejected` only if the number of
+      items in `accepted` is insufficient. Post-processing may be
+      applied on what is drawn from `rejected` (default is no post-
+      processing)."""
+      if post_processing is None:
+          post_processing = lambda x: x
+
+      lk = len(accepted)
+      if n_samples <= lk:
+          # all good, no need to fill up by rejected
+          residual, sample = train_test_split(
+              accepted,
+              test_size = n_samples,
+              random_state = seed
+          )
+          return (sample, np.append(residual, rejected, axis = 0))
+      else:
+          assert n_samples - lk <= len(rejected)
+          # need to fill up by a random selection of rejected
+          residual, padding = train_test_split(
+              rejected,
+              test_size = n_samples - lk,
+              random_state = seed
+          )
+          padding = post_processing(padding)
+          sample = np.append(accepted, padding, axis = 0)
+          return (sample, residual)
+
+  def _partition_sampler(
+          self,
+          mask: np.array,
+          n_samples_per_tree: int,
+          post_processing: Callable[[np.array], np.array],
+          seed: int
+      ) -> Callable[[np.array], tuple[np.array, np.array]]:
+      def partition_sample(data):
+          accepted, rejected = self._partition(mask, data)
+          sample, data = self._sample(
+            accepted,
+            rejected,
+            n_samples_per_tree,
+            post_processing = post_processing,
+            seed = seed
+          )
+          return (sample, data)
+      return partition_sample
+
+  def _clip_samples(self, samples):
+      return np.clip(samples, -self.l2_threshold, self.l2_threshold)
+
+  def _tree_data_sample_split(
+          self,
+          gradients: np.array,
+          X_ensemble: np.array,
+          y_ensemble: np.array,
+          n_samples_per_tree: int,
+          seed: Optional[int] = None
+      ) -> dict[str, np.array]:
+
+      assert len(gradients) == len(X_ensemble) == len(y_ensemble)
+
+      if self.gradient_filtering and not self.loss.is_multi_class:
+          logger.debug("Performing gradient-based data filtering")
+          mask = self._gradient_filtering_mask(gradients)
+      else:
+          # Having a mask of zeros will put all data points into
+          # `rejected` and therefore it will be reachable by post-
+          # processing, i.e. clipping.
+          logger.debug("Not performing gradient-based data filtering")
+          mask = np.zeros(len(gradients))
+
+      rng = np.random.default_rng(seed)
+      # The upper bound was chosen arbitrarily. It is only important
+      # that `worker` uses the same seed within each call of this
+      # method, so that the split results do still correspond.
+      rand_int = rng.integers(2 ** 32)
+
+      sampler = self._partition_sampler(
+        mask,
+        n_samples_per_tree,
+        self._clip_samples,
+        rand_int
+      )
+
+      results = [
+          sampler(data) for data in [gradients, X_ensemble, y_ensemble]
+      ]
+      return dict(
+        gradients_tree = results[0][0],
+        gradients = results[0][1],
+        X_tree = results[1][0],
+        X_ensemble = results[1][1],
+        y_tree = results[2][0],
+        y_ensemble = results[2][1],
+      )
 
 
   def Predict(self, X: np.array) -> np.array:
