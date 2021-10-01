@@ -148,7 +148,7 @@ class RootExpQLeastSquaresError(LeastSquaresError):
             lower_bound,
             upper_bound,
             privacy_budget,
-            q,
+            q = 0.5,
             random_seed = None):
         super().__init__()
         self.lower_bound = lower_bound
@@ -161,6 +161,7 @@ class RootExpQLeastSquaresError(LeastSquaresError):
         if sample_weight is None:
             # Note that sqrt(median(x_1 ** 2, x_2 ** 2, ..., x_n ** 2))
             #           = median(|x_1|, |x_2|, ...,  |x_n|)
+            # (the same holds for quantiles other than q = 0.5).
             abs_devs = np.abs(y - raw_predictions.ravel())
             abs_devs = np.sort(abs_devs)
             assert (
@@ -174,11 +175,13 @@ class RootExpQLeastSquaresError(LeastSquaresError):
                 obj = (0, len(abs_devs)),
                 values = [self.lower_bound, self.upper_bound]
             )
-            med = self._exp_q(abs_devs, self.q)
+            quantile = self._exp_q(abs_devs, self.q)
             logger.debug(
-                "True median: %f; DP median: %f", np.median(abs_devs), med
+                "True quantile: %f; DP quantile: %f",
+                np.quantile(abs_devs, self.q),
+                quantile
             )
-            return med
+            return quantile
         else:
             raise NotImplementedError(
                 "DP-Median is not implemented if argument `sample_weight` is "
