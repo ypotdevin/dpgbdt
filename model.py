@@ -29,15 +29,6 @@ class GradientBoostingEnsemble:
   """Implement gradient boosting ensemble of trees.
 
   Attributes:
-    nb_trees (int): The total number of trees in the model.
-    nb_trees_per_ensemble (int): The number of trees in each ensemble.
-    max_depth (int): The depth for the trees.
-    privacy_budget (float): The privacy budget available for the model.
-    learning_rate (float): The learning rate.
-    l2_threshold (int): Threshold for the loss function. For the square loss
-        function (default), this is 1.
-    l2_lambda (float): Regularization parameter for l2 loss function.
-        For the square loss function (default), this is 0.1.
     trees (List[List[DifferentiallyPrivateTree]]): A list of DP boosted k-class trees.
   """
   # pylint: disable=invalid-name, too-many-arguments, unused-variable
@@ -49,6 +40,8 @@ class GradientBoostingEnsemble:
                max_depth: int = 6,
                privacy_budget: Optional[float] = None,
                loss: Union[LossFunction, ClassificationLossFunction] = None,
+               l2_threshold: float = 1.0,
+               l2_lambda: float = 0.1,
                use_new_tree: Callable[[Any, Any, float, float], bool] = None,
                learning_rate: float = 0.1,
                early_stop: int = 5,
@@ -76,6 +69,12 @@ class GradientBoostingEnsemble:
           (preferably from the `losses` module), which defines primarily how to
           compute the loss of the ensemble (e.g. by using regular MSE, clipped
           MSE, median, DP-median, ...). Default is (leaky) LSE.
+      l2_threshold (float):
+          Threshold for the loss function. For the square loss function
+          (default), this is 1.0.
+      l2_lambda (float):
+          Regularization parameter for l2 loss function. For the square
+          loss function (default), this is 0.1.
       use_new_tree (Callable[[Any, Any, float, float], bool]): A predicate which
           compares the previous loss (first float) to the current loss (second
           float; including the newly created decision tree) and decides whether
@@ -119,6 +118,8 @@ class GradientBoostingEnsemble:
     self.max_depth = max_depth
     self.privacy_budget = privacy_budget
     self.loss = loss
+    self.l2_threshold = l2_threshold
+    self.l2_lambda = l2_lambda
     self.use_new_tree = use_new_tree
     self.learning_rate = learning_rate
     self.early_stop = early_stop
@@ -163,10 +164,6 @@ class GradientBoostingEnsemble:
     self.trees = []  # type: List[List[DifferentiallyPrivateTree]]
 
     self.init_ = self.loss.init_estimator()
-
-    # Loss parameters
-    self.l2_threshold = 1.0
-    self.l2_lambda = 0.1
 
     # Initial score
     self.init_score = None
