@@ -231,12 +231,13 @@ class RootExpQLeastSquaresError(LeastSquaresError):
     def __repr__(self) -> str:
         _repr = (
             "RootExpQLeastSquaresError(lower_bound={},upper_bound={},"
-            "privacy_budget={},random_seed={})"
+            "privacy_budget={},q={},random_seed={})"
         ).format(
             self.lower_bound,
             self.upper_bound,
             self.privacy_budget,
-            self.random_seed
+            self.q,
+            self.random_seed,
         )
         return _repr
 
@@ -254,6 +255,26 @@ class RootMedianLeastSquaresError(LeastSquaresError):
 
     def __repr__(self) -> str:
         return "RootMedianLeastSquaresError"
+
+class RootQuantileLeastSquaresError(LeastSquaresError):
+    def __init__(self, q):
+        super().__init__()
+        self.q = q
+
+    def __call__(self, y, raw_predictions, sample_weight = None):
+        if sample_weight is None:
+            # Note that sqrt(median(x_1 ** 2, x_2 ** 2, ..., x_n ** 2))
+            #           = median(|x_1|, |x_2|, ..., |x_n|),
+            # which holds analogously for other quantiles.
+            return np.quantile(np.abs(y - raw_predictions.ravel()), self.q)
+        else:
+            raise NotImplementedError(
+                "RQuantileLSE is not implemented if argument `sample_weight`"
+                "is not None."
+            )
+
+    def __repr__(self) -> str:
+        return "RootQuantileLeastSquaresError(q={})".format(self.q)
 
 
 LOSS_FUNCTIONS = {
