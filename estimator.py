@@ -25,6 +25,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
                learning_rate: float,
                privacy_budget: Optional[float] = None,
                loss: Union[LossFunction, ClassificationLossFunction] = None,
+               l2_threshold: float = 1.0,
+               l2_lambda: float = 0.1,
                use_new_tree: Callable[[Any, Any, float, float], bool] = None,
                early_stop: int = 5,
                n_classes: Optional[int] = None,
@@ -51,6 +53,12 @@ class DPGBDT(BaseEstimator):  # type: ignore
           (preferably from the `losses` module), which defines primarily how to
           compute the loss of the ensemble (e.g. by using regular MSE, clipped
           MSE, median, DP-median, ...). Default is (leaky) LSE.
+      l2_threshold (float):
+          Threshold for the loss function. For the square loss function
+          (default), this is 1.0.
+      l2_lambda (float):
+          Regularization parameter for l2 loss function. For the square
+          loss function (default), this is 0.1.
       use_new_tree (Callable[[Any, Any, float, float], bool]): A predicate which
           compares the previous loss (first float) to the current loss (second
           float; including the newly created decision tree) and decides whether
@@ -99,6 +107,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.learning_rate = learning_rate
     self.privacy_budget = privacy_budget
     self.loss = loss
+    self.l2_threshold = l2_threshold
+    self.l2_lambda = l2_lambda
     self.use_new_tree = use_new_tree
     self.early_stop = early_stop
     self.n_classes = n_classes
@@ -132,6 +142,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
         max_depth=self.max_depth,
         privacy_budget=self.privacy_budget,
         loss=self.loss,
+        l2_threshold=self.l2_threshold,
+        l2_lambda=self.l2_lambda,
         use_new_tree=self.use_new_tree,
         learning_rate=self.learning_rate,
         early_stop=self.early_stop,
