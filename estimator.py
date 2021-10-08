@@ -198,6 +198,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
     return {
         'privacy_budget': self.privacy_budget,
         'loss': self.loss,
+        'l2_threshold': self.l2_threshold,
+        'l2_lambda': self.l2_lambda,
         'nb_trees': self.nb_trees,
         'nb_trees_per_ensemble': self.nb_trees_per_ensemble,
         'max_depth': self.max_depth,
