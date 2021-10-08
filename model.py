@@ -127,7 +127,11 @@ class GradientBoostingEnsemble:
     self.gradient_filtering = gradient_filtering
     self.leaf_clipping = leaf_clipping
     self.balance_partition = balance_partition
+    if use_bfs:
+        raise ValueError("The option `use_bfs` is not supported anymore.")
     self.use_bfs = use_bfs
+    if use_3_trees:
+        raise ValueError("The option `use_3_trees` is not supported anymore.")
     self.use_3_trees = use_3_trees
     self.use_decay = use_decay
     self.cat_idx = cat_idx
