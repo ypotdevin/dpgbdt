@@ -3,7 +3,7 @@
 # ypo@informatik.uni-kiel.de
 """Estimator wrapper around the implementation."""
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -36,6 +36,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
                use_bfs: bool = False,
                use_3_trees: bool = False,
                use_decay: bool = False,
+               splitting_grid: Optional[Sequence[Any]] = None,
                cat_idx: Optional[List[int]] = None,
                num_idx: Optional[List[int]] = None) -> None:
     """Initialize the wrapper.
@@ -86,6 +87,12 @@ class DPGBDT(BaseEstimator):  # type: ignore
           Default is False.
       use_decay (bool): Optional. If True, internal node privacy budget has a
           decaying factor.
+      splitting_grid (Sequence[np.array]): Optional.
+          If provided, use these (data independent) per feature
+          splitting candidates for all trees, to find the best value to
+          split on while building any decision tree. It is assumed, but
+          not checked, that each feature array conains no duplicates.
+          If not provided, use the data feature values to split on.
       cat_idx (List): Optional. List of indices for categorical features.
       num_idx (List): Optional. List of indices for numerical features.
     """
@@ -106,6 +113,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.use_bfs = use_bfs
     self.use_3_trees = use_3_trees
     self.use_decay = use_decay
+    self.splitting_grid = splitting_grid
     self.cat_idx = cat_idx
     self.num_idx = num_idx
 
@@ -143,6 +151,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
         use_bfs=self.use_bfs,
         use_3_trees=self.use_3_trees,
         use_decay=self.use_decay,
+        splitting_grid=self.splitting_grid,
         cat_idx=self.cat_idx,
         num_idx=self.num_idx,
     )
@@ -201,6 +210,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
         'use_bfs': self.use_bfs,
         'use_3_trees': self.use_3_trees,
         'use_decay': self.use_decay,
+        'splitting_grid': self.splitting_grid,
         'cat_idx': self.cat_idx,
         'num_idx': self.num_idx
     }
