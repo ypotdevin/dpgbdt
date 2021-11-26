@@ -31,9 +31,9 @@ def get_abalone(n_rows: Optional[int] = None) -> Any:
   data['sex'] = pd.get_dummies(data['sex'])
   if n_rows:
     data = data.head(n_rows)
-  y = data.rings.values.astype(np.float)
+  y = data.rings.values.astype(float)
   del data['rings']
-  X = data.values.astype(np.float)
+  X = data.values.astype(float)
   cat_idx = [0]  # Sex
   num_idx = list(range(1, X.shape[1]))  # Other attributes
   return X, y, cat_idx, num_idx
