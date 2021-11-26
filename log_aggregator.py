@@ -1,12 +1,12 @@
 # ypo@informatik.uni-kiel.de
 
 from io import StringIO
-from typing import Callable, Iterable, Sequence, TypeVar
+from typing import Callable, Iterable, Optional, Sequence, TypeVar
 import pandas as pd
 
 T = TypeVar('T')  # Can be anything
 
-def stripped_lines(filename) -> Iterable[str]:
+def stripped_lines(filename: str) -> Iterable[str]:
     with open(filename, 'r') as file:
         for line in file:
             yield line.strip()
@@ -37,15 +37,15 @@ def process_parts(
 
 def join_parts(
         parts_iter: Iterable[Sequence[str]],
-        sep = ',') -> Iterable[str]:
+        sep: str = ',') -> Iterable[str]:
     for parts in parts_iter:
         yield sep.join(parts)
 
 def to_dataframe(
         lines: Iterable[str],
-        names,
-        index_col = None,
-        sep = ',') -> pd.DataFrame:
+        names: Sequence[str],
+        index_col: Optional[str] = None,
+        sep: str = ',') -> pd.DataFrame:
     lines = StringIO('\n'.join(lines))
     df = pd.read_csv(
         lines,
@@ -56,7 +56,7 @@ def to_dataframe(
     )
     return df
 
-def loss_evolution_extractor(filename):
+def loss_evolution_extractor(filename: str) -> pd.DataFrame:
     lines = stripped_lines(filename)
     lines = filter_lines("#loss_evolution#", lines)
     lines = strip_prefix_from_lines(
@@ -86,7 +86,7 @@ def loss_evolution_worker(part: str) -> str:
             "String part was not as expected. Part: {}".format(part)
         )
 
-def tree_evolution_extractor(filename):
+def tree_evolution_extractor(filename: str) -> pd.DataFrame:
     lines = stripped_lines(filename)
     lines = filter_lines("#tree_evolution#", lines)
     lines = strip_prefix_from_lines(
