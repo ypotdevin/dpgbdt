@@ -10,7 +10,7 @@ from sklearn.ensemble._gb_losses import (BinomialDeviance,
                                          LeastSquaresError, LossFunction,
                                          MultinomialDeviance)
 
-from dp_variance import smooth_sensitivity
+from dp_variance.dp_variance import smooth_sensitivity
 from dp_rmse import dp_rMS_cauchy
 
 __all__ = [
