@@ -53,6 +53,7 @@ class GradientBoostingEnsemble:
                use_bfs: bool = False,
                use_3_trees: bool = False,
                use_decay: bool = False,
+               splitting_grid: Optional[Sequence[Any]] = None,
                cat_idx: Optional[List[int]] = None,
                num_idx: Optional[List[int]] = None) -> None:
     """Initialize the GradientBoostingEnsemble class.
@@ -109,6 +110,12 @@ class GradientBoostingEnsemble:
           Default is False.
       use_decay (bool): Optional. If True, internal node privacy budget has a
           decaying factor.
+      splitting_grid (Sequence[np.array]): Optional.
+          If provided, use these (data independent) per feature
+          splitting candidates for all trees, to find the best value to
+          split on while building any decision tree. It is assumed, but
+          not checked, that each feature array conains no duplicates.
+          If not provided, use the data feature values to split on.
       cat_idx (List): Optional. List of indices for categorical features.
       num_idx (List): Optional. List of indices for numerical features.
       """
@@ -128,9 +135,14 @@ class GradientBoostingEnsemble:
     self.gradient_filtering = gradient_filtering
     self.leaf_clipping = leaf_clipping
     self.balance_partition = balance_partition
+    if use_bfs:
+        raise ValueError("The option `use_bfs` is not supported anymore.")
     self.use_bfs = use_bfs
+    if use_3_trees:
+        raise ValueError("The option `use_3_trees` is not supported anymore.")
     self.use_3_trees = use_3_trees
     self.use_decay = use_decay
+    self.splitting_grid = splitting_grid
     self.cat_idx = cat_idx
     self.num_idx = num_idx
 
@@ -324,6 +336,7 @@ class GradientBoostingEnsemble:
               use_bfs=self.use_bfs,
               use_3_trees=self.use_3_trees,
               use_decay=self.use_decay,
+              splitting_grid = self.splitting_grid,
               cat_idx=self.cat_idx,
               num_idx=self.num_idx)
           # in multi-class classification, the target has to be binary
@@ -789,6 +802,7 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
                use_bfs: bool = False,
                use_3_trees: bool = False,
                use_decay: bool = False,
+               splitting_grid: Optional[Sequence[Any]] = None,
                cat_idx: Optional[List[int]] = None,
                num_idx: Optional[List[int]] = None) -> None:
     """Initialize the decision tree.
@@ -843,6 +857,7 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
     self.use_bfs = use_bfs
     self.use_3_trees = use_3_trees
     self.use_decay = use_decay
+    self.splitting_grid = splitting_grid
     self.cat_idx = cat_idx
     self.num_idx = num_idx
 
@@ -953,15 +968,35 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
       # node
       return MakeLeafNode()
 
+    if self.splitting_grid is None:
+      _splitting_grid = X.T
+    else:
+      _splitting_grid = self.splitting_grid
+
     if not self.use_3_trees:
-      best_split = self.FindBestSplit(X, gradients, current_depth)
+      best_split = self.FindBestSplit(
+          X,
+          gradients,
+          _splitting_grid,
+          current_depth
+      )
     else:
       if current_depth != 0:
         best_split = self.FindBestSplit(
-            X, gradients, current_depth, X_sibling=X_sibling,
-            gradients_sibling=gradients_sibling)
+            X,
+            gradients,
+            _splitting_grid,
+            current_depth,
+            X_sibling = X_sibling,
+            gradients_sibling = gradients_sibling
+        )
       else:
-        best_split = self.FindBestSplit(X, gradients, current_depth)
+        best_split = self.FindBestSplit(
+            X,
+            gradients,
+            _splitting_grid,
+            current_depth
+        )
     if best_split:
       logger.debug('Tree DFS: best split found at index {0:d}, value {1:f} '
                    'with gain {2:f}. Current depth is {3:d}'.format(
@@ -1165,6 +1200,7 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
   def FindBestSplit(self,
                     X: np.array,
                     gradients: np.array,
+                    featurewise_split_candidates: Sequence[np.array],
                     current_depth: Optional[int] = None,
                     X_sibling: Optional[np.array] = None,
                     gradients_sibling: Optional[np.array] = None,
@@ -1174,6 +1210,9 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
     Args:
       X (np.array): The dataset.
       gradients (np.array): The gradients for the dataset instances.
+      featurewise_split_candidates (Sequence[np.array]):
+          Per feature index an array of split candidates. It is assumed,
+          but not checked, that each array contains no duplicates.
       current_depth (int): Optional. The current depth of the tree. If
           specified, the privacy budget decays with the depth growing.
       X_sibling (np.array): Optional. The subset of data in the sibling node.
@@ -1205,23 +1244,28 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
     probabilities = []
     max_gain = -np.inf
     # Iterate over features
-    for feature_index in range(X.shape[1]):
-      binary_split = len(np.unique(X[:, feature_index])) == 2
+    for feature_idx, split_cands in enumerate(featurewise_split_candidates):
+      binary_split = len(split_cands) == 2
       # Iterate over unique value for this feature
-      for idx, value in enumerate(np.unique(X[:, feature_index])):
+      for idx, candidate in enumerate(split_cands):
         # Find gain for that split
         if binary_split and idx == 1:
           # If the attribute only has 2 values then we don't need to care for
           # both gains as they're equal
           prob = {
-            'index': feature_index,
-            'value': value,
+            'index': feature_idx,
+            'value': candidate,
             'gain': 0.
           }
         else:
           gain = self.ComputeGain(
-              feature_index, value, X, gradients, X_sibling=X_sibling,
-              gradients_sibling=gradients_sibling)
+              feature_idx,
+              candidate,
+              X,
+              gradients,
+              X_sibling = X_sibling,
+              gradients_sibling = gradients_sibling
+          )
           if gain == -1:
             # Feature's value cannot be chosen, skipping
             continue
@@ -1231,8 +1275,8 @@ class DifferentiallyPrivateTree(BaseEstimator):  # type: ignore
           if gain > max_gain:
             max_gain = gain
           prob = {
-              'index': feature_index,
-              'value': value,
+              'index': feature_idx,
+              'value': candidate,
               'gain': gain
           }
         probabilities.append(prob)
