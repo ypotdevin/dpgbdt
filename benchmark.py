@@ -56,15 +56,16 @@ def cross_validate(
         X, y,
         filename: str,
         dummy_estimator,
-        parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
+        parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]],
+        n_jobs: int) -> None:
     parameters = parameter_preprocessing(parameters)
     best_model = model_selection.GridSearchCV(
         estimator = dummy_estimator,
         param_grid = parameters,
         scoring = "neg_root_mean_squared_error",
-        n_jobs = 63, # leave one core free
-        #n_jobs = 1,
+        n_jobs = n_jobs,
         cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10),
+        #cv = model_selection.RepeatedKFold(n_splits = 2, n_repeats = 1),
         return_train_score = True
     )
     best_model.fit(X, y)
@@ -106,6 +107,7 @@ def with_core_parameters(cv_fun):
 def my_cv(
         parameterss: Iterable[dict[str, Any]],
         filenames: Iterable[str],
+        n_jobs: int = 60,
         dummy_estimator = None,
         parameter_preprocessing = None):
     if dummy_estimator is None:
@@ -120,6 +122,7 @@ def my_cv(
         cv_fun(
             parameters = parameters,
             filename = filename,
+            n_jobs = n_jobs,
             dummy_estimator = dummy_estimator,
             parameter_preprocessing = parameter_preprocessing
         )
@@ -138,7 +141,7 @@ def min_max_pipeline(final_estimator):
     return make_pipeline(MinMaxScaler(), final_estimator)
 
 
-def cv_vanilla_gbdt():
+def cv_vanilla_gbdt() -> None:
     """Setting 1"""
     cv_fun = cross_validate
     cv_fun = on_abalone(cv_fun)
@@ -167,7 +170,7 @@ def cv_vanilla_gbdt():
     )
 
 
-def cv_vanilla_gbdt_with_opt():
+def cv_vanilla_gbdt_with_opt() -> None:
     """Setting 2"""
     dfs_parameters = dict(
         privacy_budget = [None],
@@ -200,7 +203,7 @@ def _extend_dfs_parameters(dfs_parameters):
     return parameterss
 
 
-def cv_dpgbdt():
+def cv_dpgbdt() -> None:
     """Setting 3"""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -220,7 +223,7 @@ def cv_dpgbdt():
     my_cv(parameterss, filenames)
 
 
-def cv_dpgbdt_with_clipping():
+def cv_dpgbdt_with_clipping() -> None:
     """Setting 4"""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -234,7 +237,7 @@ def cv_dpgbdt_with_clipping():
     my_cv([dfs_parameters], ["dpgbdt_clipping_dfs.csv"])
 
 
-def cv_clipping():
+def cv_clipping() -> None:
     """Setting 5"""
     X, y, cat_idx, num_idx = get_abalone()
     privacy_budget = np.append(
@@ -269,7 +272,7 @@ def cv_clipping():
     cross_validate(three_trees_parameters, X, y, "use_3_trees_5-fold-RMSE.csv")
 
 
-def cv_dpgbdt_opt():
+def cv_dpgbdt_opt() -> None:
     """Setting 6"""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -289,7 +292,7 @@ def cv_dpgbdt_opt():
     my_cv([parameterss[0]], filenames)
 
 
-def setting7():
+def setting7() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -305,7 +308,7 @@ def setting7():
     my_cv([dfs_parameters], ["setting7.csv"])
 
 
-def setting8():
+def setting8() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -321,7 +324,7 @@ def setting8():
     my_cv([dfs_parameters], ["setting8.csv"])
 
 
-def setting9():
+def setting9() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -337,7 +340,7 @@ def setting9():
     my_cv([dfs_parameters], ["setting9.csv"])
 
 
-def setting10():
+def setting10() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -352,7 +355,7 @@ def setting10():
     )
     my_cv([dfs_parameters], ["setting10.csv"])
 
-def setting11():
+def setting11() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -374,7 +377,7 @@ def setting11():
     )
     my_cv([dfs_parameters], ["setting11.csv"])
 
-def setting11a():
+def setting11a() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -396,7 +399,7 @@ def setting11a():
     )
     my_cv([dfs_parameters], ["setting11a.csv"])
 
-def setting12():
+def setting12() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -418,7 +421,7 @@ def setting12():
     )
     my_cv([dfs_parameters], ["setting12.csv"])
 
-def setting13():
+def setting13() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -433,7 +436,7 @@ def setting13():
     )
     my_cv([dfs_parameters], ["setting13.csv"])
 
-def setting14():
+def setting14() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -448,7 +451,7 @@ def setting14():
     )
     my_cv([dfs_parameters], ["setting14.csv"])
 
-def setting15():
+def setting15() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -468,7 +471,7 @@ def setting15():
         parameter_preprocessing = lambda x: to_pipeline_params(x, 'dpgbdt')
     )
 
-def setting16():
+def setting16() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -486,7 +489,7 @@ def setting16():
         filenames = ["setting16.csv"],
     )
 
-def setting17():
+def setting17() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -504,7 +507,7 @@ def setting17():
         filenames = ["setting17.csv"],
     )
 
-def setting18():
+def setting18() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -526,29 +529,7 @@ def setting18():
         filenames = ["setting18.csv"],
     )
 
-def setting18():
-    """See jupyter notebook for more explanation."""
-    privacy_budget = np.append(
-        np.linspace(0.1, 0.9, num = 9),
-        np.linspace(1.0, 5.0, num = 9),
-    )
-    dfs_parameters = dict(
-        privacy_budget = privacy_budget,
-        loss = [losses.RootExpQLeastSquaresError(
-            lower_bound = 0.0,
-            upper_bound = 100.0,
-            privacy_budget = 0.1
-        )],
-        use_new_tree = [losses.useful_tree_predicate],
-        gradient_filtering = [True],
-        leaf_clipping = [True],
-    )
-    my_cv(
-        parameterss = [dfs_parameters],
-        filenames = ["setting18.csv"],
-    )
-
-def setting19():
+def setting19() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -574,7 +555,7 @@ def setting19():
         filenames = ["setting19.csv"],
     )
 
-def setting20():
+def setting20() -> None:
     """See jupyter notebook for more explanation."""
     privacy_budget = np.append(
         np.linspace(0.1, 0.9, num = 9),
@@ -596,7 +577,83 @@ def setting20():
         filenames = ["setting20.csv"],
     )
 
-def in_depth_analysis_1():
+def setting21() -> None:
+    """See jupyter notebook for more explanation."""
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.DP_quasi_rMSE(
+            privacy_budget = 1,
+            beta = 0.5,
+            L = -100,
+            U = 100,
+            m = 0,
+            seed = 42,
+        )
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.useful_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv(
+        parameterss = [dfs_parameters],
+        filenames = ["setting21.csv"],
+    )
+
+def setting22(n_jobs: int) -> None:
+    """See jupyter notebook for more explanation."""
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.DP_rMSE(
+            privacy_budget = 1,
+            U = 100,
+            seed = 42,
+        )
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.useful_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv(
+        parameterss = [dfs_parameters],
+        filenames = ["setting22.csv"],
+        n_jobs = n_jobs,
+    )
+
+def setting23(n_jobs: int) -> None:
+    """See jupyter notebook for more explanation."""
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.LeastSquaresError()
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.keep_each_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv(
+        parameterss = [dfs_parameters],
+        filenames = ["setting23.csv"],
+        n_jobs = n_jobs,
+    )
+
+def in_depth_analysis_1() -> None:
     X, y, cat_idx, num_idx = get_abalone()
     model = estimator.DPGBDT(
         nb_trees = 50,
@@ -646,10 +703,9 @@ def in_depth_analysis_2():
     return rmse
 
 if __name__ == '__main__':
-    f = setting20
+    f = setting23
     logging.basicConfig(
        filename='{}.log'.format(f.__name__),
-       encoding='utf-8',
        level = logging.DEBUG
     )
-    f()
+    f(n_jobs = 120)
