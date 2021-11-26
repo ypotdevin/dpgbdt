@@ -161,7 +161,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
     self.n_features_ = X.shape[1]
     return self.model_.Train(X, y)
 
-  def predict(self, X: np.array) -> np.array:
+  def predict(self, X: np.ndarray) -> np.ndarray:
     """Predict the label for a given dataset.
 
     Args:
@@ -179,7 +179,7 @@ class DPGBDT(BaseEstimator):  # type: ignore
     else:
       return self.model_.Predict(X).squeeze()
 
-  def predict_proba(self, X: np.array) -> np.array:
+  def predict_proba(self, X: np.ndarray) -> np.ndarray:
     """Predict class probabilities for X.
 
     Args:
