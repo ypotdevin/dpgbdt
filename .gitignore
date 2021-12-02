@@ -63,3 +63,4 @@ venv/
 data/
 .vscode/
 .ipynb_checkpoints/
+*.log.gz
