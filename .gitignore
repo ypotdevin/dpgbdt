@@ -64,3 +64,4 @@ data/
 .vscode/
 .ipynb_checkpoints/
 *.log.gz
+training_data/
