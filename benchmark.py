@@ -4,14 +4,14 @@
 """Example test file."""
 
 import logging
+from os import pipe
 import sys
 from functools import wraps
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn import model_selection
-from sklearn.pipeline import make_pipeline
+from sklearn import model_selection, preprocessing, pipeline, compose
 from sklearn.preprocessing import MinMaxScaler
 
 import estimator
@@ -21,7 +21,7 @@ DUMMY_ESTIMATOR = estimator.DPGBDT(
     nb_trees = 0,
     nb_trees_per_ensemble = 0,
     max_depth = 0,
-    learning_rate= 0.0
+    learning_rate = 0.0
 )
 
 
@@ -50,6 +50,45 @@ def get_abalone(n_rows: Optional[int] = None) -> Any:
     num_idx = list(range(1, X.shape[1]))  # Other attributes
     return X, y, cat_idx, num_idx
 
+def get_adult() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    df = pd.read_csv('training_data/adult/adult_train.csv')
+    df = df.replace('?', np.nan)
+    df = df.dropna(axis = 0, how = "any")
+
+    nomi_steps = [('onehot', preprocessing.OneHotEncoder(sparse = False))]
+    nomi_pipe = pipeline.Pipeline(nomi_steps)
+    nomi_cols = [
+        'workclass', 'marital.status', 'occupation', 'relationship', 'race',
+        'sex', 'native.country'
+    ]
+    transformers = [
+        ('nominal', nomi_pipe, nomi_cols),
+        ('numeric', 'passthrough', ['age', 'capital.gain', 'capital.loss',
+                                    'hours.per.week'] )
+    ]
+    # This implicitly drops the columns 'fnlwgt', 'education' and
+    # 'income'
+    col_trans = compose.ColumnTransformer(transformers = transformers)
+    X = col_trans.fit_transform(df)
+
+    y_enc = preprocessing.LabelEncoder()
+    y = y_enc.fit_transform(df['income'])
+
+    cat_idx = list(range(82)) # Assume the first 82 columns are created
+                              # by the OneHotEncoder based on the 7
+                              # input features
+    num_idx = list(range(82, 86))
+    return X, y, cat_idx, num_idx
+
+def get_MSD() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    df = pd.read_csv('training_data/MSD/year_prediction.csv')
+    X = df.drop(labels = 'label', axis = 1).values # timbre averages and covariances (floats)
+    X = X[:463715] # The remaining ones are the final test set
+    cat_idx = [] # type: ignore
+    num_idx = list(range(X.shape[1]))
+    y = df['label'].values # release year (int64)
+    y = y[:463715]
+    return X, y, cat_idx, num_idx
 
 def cross_validate(
         parameters: dict[str, Any],
@@ -73,12 +112,22 @@ def cross_validate(
     df.to_csv(filename)
 
 
-def on_abalone(cv_fun):
-    """Substitute arguments `X` and `y` by Abalone data."""
+def on_dataset(
+        cv_fun: Callable[..., None],
+        which: str
+    ) -> Callable[..., None]:
     @wraps(cv_fun)
-    def wrapper(**kwargs):
+    def wrapper(**kwargs: dict[str, Any]) -> None:
         parameters = kwargs.pop('parameters')
-        X, y, cat_idx, num_idx = get_abalone()
+        if which == 'abalone':
+            get_ds = get_abalone
+        elif which == 'adult':
+            get_ds = get_adult
+        elif which == 'MSD':
+            get_ds = get_MSD
+        else:
+            raise ValueError("Unsupported dataset: {}".format(which))
+        X, y, cat_idx, num_idx = get_ds()
         parameters = dict(
           cat_idx = [cat_idx],
           num_idx = [num_idx],
@@ -87,11 +136,12 @@ def on_abalone(cv_fun):
         cv_fun(parameters = parameters, X = X, y = y, **kwargs)
     return wrapper
 
-
-def with_core_parameters(cv_fun):
-    """Add commonly used parameters to `parameters`."""
+def with_basic_estimator_config(
+        cv_fun: Callable[..., None]
+    ) -> Callable[..., None]:
+    """Set commonly used parameters."""
     @wraps(cv_fun)
-    def wrapper(**kwargs):
+    def wrapper(**kwargs: dict[str, Any]) -> None:
         parameters = kwargs.pop('parameters')
         parameters = dict(
           nb_trees = [50],
@@ -103,6 +153,48 @@ def with_core_parameters(cv_fun):
         cv_fun(parameters = parameters, **kwargs)
     return wrapper
 
+def with_io_params(
+        cv_fun: Callable[..., None],
+        dataset: str,
+        n_jobs: int,
+    ) -> Callable[..., None]:
+    @wraps(cv_fun)
+    def wrapper(**kwargs: dict[str, Any]) -> None:
+        cv_fun(n_jobs = n_jobs, **kwargs)
+    return on_dataset(wrapper, which = dataset)
+
+def my_cv2(
+        *,
+        parameters: dict[str, Any],
+        filename: str,
+        dataset: str = 'abalone',
+        n_jobs: int = 60,
+        pipeline = None, # type: ignore
+        parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]] = None,
+    ) -> None:
+    if pipeline is None:
+        pipeline = DUMMY_ESTIMATOR
+    if parameter_preprocessing is None:
+        parameter_preprocessing = lambda x: x
+    cv_fun = cross_validate
+    cv_fun = with_basic_estimator_config(cv_fun)
+    cv_fun = with_io_params(cv_fun, dataset, n_jobs)
+    cv_fun = with_pipeline_params(cv_fun, pipeline, parameter_preprocessing)
+    cv_fun(parameters = parameters, filename = filename)
+
+def with_pipeline_params(
+        cv_fun: Callable[..., None],
+        pipeline,
+        parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> Callable[..., None]:
+    @wraps(cv_fun)
+    def wrapper(**kwargs: dict[str, Any]) -> None:
+        cv_fun(
+            dummy_estimator = pipeline,
+            parameter_preprocessing = parameter_preprocessing,
+            **kwargs
+        )
+    return wrapper
 
 def my_cv(
         parameterss: Iterable[dict[str, Any]],
@@ -116,8 +208,8 @@ def my_cv(
         parameter_preprocessing = lambda x: x
 
     cv_fun = cross_validate
-    cv_fun = on_abalone(cv_fun)
-    cv_fun = with_core_parameters(cv_fun)
+    cv_fun = on_dataset(cv_fun, which = 'abalone')
+    cv_fun = with_basic_estimator_config(cv_fun)
     for (parameters, filename) in zip(parameterss, filenames):
         cv_fun(
             parameters = parameters,
@@ -138,14 +230,14 @@ def to_pipeline_params(params: dict[str, Any], step_prefix: str):
     }
 
 def min_max_pipeline(final_estimator):
-    return make_pipeline(MinMaxScaler(), final_estimator)
+    return pipeline.make_pipeline(MinMaxScaler(), final_estimator)
 
 
 def cv_vanilla_gbdt() -> None:
     """Setting 1"""
     cv_fun = cross_validate
-    cv_fun = on_abalone(cv_fun)
-    cv_fun = with_core_parameters(cv_fun)
+    cv_fun = on_dataset(cv_fun, which = 'abalone')
+    cv_fun = with_basic_estimator_config(cv_fun)
 
     dfs_parameters = dict(
         privacy_budget = [None],
@@ -653,6 +745,76 @@ def setting23(n_jobs: int) -> None:
         n_jobs = n_jobs,
     )
 
+def setting24(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.LeastSquaresError()
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.keep_each_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = "setting24.csv",
+        dataset = 'MSD',
+        n_jobs = n_jobs,
+    )
+
+def setting25(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.DP_rMSE(
+            privacy_budget = 1,
+            U = 100, # TODO
+            seed = 42,
+        )
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.useful_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = "setting25.csv",
+        dataset = 'MSD',
+        n_jobs = n_jobs,
+    )
+
+def setting26(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [
+        losses.LeastSquaresError()
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.keep_each_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = "setting26.csv",
+        dataset = 'adult',
+        n_jobs = n_jobs,
+    )
+
 def in_depth_analysis_1() -> None:
     X, y, cat_idx, num_idx = get_abalone()
     model = estimator.DPGBDT(
@@ -703,9 +865,9 @@ def in_depth_analysis_2():
     return rmse
 
 if __name__ == '__main__':
-    f = setting23
+    f = setting26
     logging.basicConfig(
        filename='{}.log'.format(f.__name__),
        level = logging.DEBUG
     )
-    f(n_jobs = 120)
+    f(n_jobs = 60)
