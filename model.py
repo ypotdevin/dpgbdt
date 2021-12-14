@@ -121,6 +121,8 @@ class GradientBoostingEnsemble:
       """
     self.nb_trees = nb_trees
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
+    if n_classes is not None:
+      raise ValueError("Classification is currently not supported (leaky).")
     self.n_classes = n_classes
     self.max_depth = max_depth
     self.privacy_budget = privacy_budget
