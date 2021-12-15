@@ -401,8 +401,13 @@ class DP_rMSE(LeastSquaresError):# type: ignore
             sample_weight: Optional[np.ndarray] = None
         ) -> float:
         if sample_weight is None:
+            differences = y - raw_predictions.ravel()
+            logger.debug(
+                "max(abs(diffs)): %f",
+                np.max(np.abs(differences))
+            )
             return dp_rMS_cauchy(
-                y - raw_predictions.ravel(), self.privacy_budget,
+                differences, self.privacy_budget,
                 self.U, self.seed
             )
         else:

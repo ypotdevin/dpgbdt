@@ -389,6 +389,11 @@ class GradientBoostingEnsemble:
 
       raw_predictions = self.Predict(X)
       current_loss = self.loss(y, raw_predictions)
+      if current_loss < 0:
+          logger.warn(
+              "Negative loss detected: %f. Likely cause: large negative"
+              "noise drawn from Cauchy distribution."
+          )
       logger.info(
           '#loss_evolution# --- fitting decision tree %d; previous loss: %f; '
           'current loss: %f',
@@ -481,7 +486,11 @@ class GradientBoostingEnsemble:
           )
           return (sample, np.append(residual, rejected, axis = 0))
       else:
-          assert n_samples - lk <= len(rejected)
+          n_rejected = len(rejected)
+          assert n_samples - lk <= n_rejected
+          if n_samples == n_rejected:
+              # No split needed if taking the whole part
+              return (rejected, np.array([]))
           # need to fill up by a random selection of rejected
           residual, padding = train_test_split(
               rejected,
