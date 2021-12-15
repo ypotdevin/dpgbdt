@@ -3,15 +3,14 @@
 
 """Example test file."""
 
+import argparse
 import logging
-from os import pipe
-import sys
 from functools import wraps
 from typing import Any, Callable, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn import model_selection, preprocessing, pipeline, compose
+from sklearn import compose, metrics, model_selection, pipeline, preprocessing
 from sklearn.preprocessing import MinMaxScaler
 
 import estimator
@@ -37,7 +36,7 @@ def get_abalone(n_rows: Optional[int] = None) -> Any:
     # pylint: disable=redefined-outer-name,invalid-name
     # Re-encode gender information
     data = pd.read_csv(
-        './abalone.data',
+        './training_data/abalone/abalone.data',
         names=['sex', 'length', 'diameter', 'height', 'whole weight',
               'shucked weight', 'viscera weight', 'shell weight', 'rings'])
     data['sex'] = pd.get_dummies(data['sex'])
@@ -96,15 +95,18 @@ def cross_validate(
         filename: str,
         dummy_estimator,
         parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]],
-        n_jobs: int) -> None:
+        n_jobs: int,
+        cv = None,
+    ) -> None:
+    if cv is None:
+        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10),
     parameters = parameter_preprocessing(parameters)
     best_model = model_selection.GridSearchCV(
         estimator = dummy_estimator,
         param_grid = parameters,
         scoring = "neg_root_mean_squared_error",
         n_jobs = n_jobs,
-        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10),
-        #cv = model_selection.RepeatedKFold(n_splits = 2, n_repeats = 1),
+        cv = cv,
         return_train_score = True
     )
     best_model.fit(X, y)
@@ -815,59 +817,107 @@ def setting26(n_jobs: int) -> None:
         n_jobs = n_jobs,
     )
 
-def in_depth_analysis_1() -> None:
-    X, y, cat_idx, num_idx = get_abalone()
-    model = estimator.DPGBDT(
-        nb_trees = 50,
-        nb_trees_per_ensemble = 50,
-        max_depth = 6,
-        learning_rate = 0.1,
-        privacy_budget = 1.0,
-        loss = losses.RootExpQLeastSquaresError(
-            lower_bound = 0.0,
-            upper_bound = 100.0,
-            privacy_budget = 0.1
-        ),
-        use_new_tree = losses.useful_tree_predicate,
-        gradient_filtering = True,
-        leaf_clipping = True,
-        cat_idx=cat_idx,
-        num_idx=num_idx
+def setting27(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
     )
-    model.fit(X, y)
+    losses_ = [
+        losses.DP_rMSE(
+            privacy_budget = 1,
+            U = 100, # TODO
+            seed = 42,
+        )
+    ]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.useful_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = "setting27.csv",
+        dataset = 'adult',
+        n_jobs = n_jobs,
+    )
 
-def in_depth_analysis_2():
-    X, y, cat_idx, num_idx = get_abalone()
-    X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y)
-
-    model = estimator.DPGBDT(
+def single_run(
+        get_dataset,
+        loss,
+        predicate,
+        further_model_params,
+    ) -> None:
+    X, y, cat_idx, num_idx = get_dataset()
+    X_train, X_val, y_train, y_val = model_selection.train_test_split(X, y)
+    model_params = dict(
         nb_trees = 50,
         nb_trees_per_ensemble = 50,
         max_depth = 6,
         learning_rate = 0.1,
         privacy_budget = 1.0,
-        loss = losses.RootExpQLeastSquaresError(
-            lower_bound = 0.0,
-            upper_bound = 100.0,
-            privacy_budget = 0.1,
-            q = 0.9
-        ),
-        use_new_tree = losses.useful_tree_predicate,
         gradient_filtering = True,
         leaf_clipping = True,
-        cat_idx = cat_idx,
-        num_idx = num_idx
+    )
+    model_params.update(further_model_params)
+    model = estimator.DPGBDT(
+        loss = loss,
+        use_new_tree = predicate,
+        cat_idx=cat_idx,
+        num_idx=num_idx,
+        **model_params
     )
     model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    rmse = np.sqrt(np.mean(np.square(y_pred - y_test)))
-    print('Depth first growth - RMSE: {0:f}'.format(rmse))
-    return rmse
+    y_pred = model.predict(X_val)
+    rmse = metrics.mean_squared_error(
+        y_true = y_val, y_pred = y_pred, squared = False
+    )
+    print(
+        "rMSE of DPGBDT with loss {} and predicate {}: {}".format(
+            loss, predicate, rmse
+        )
+    )
+
+
 
 if __name__ == '__main__':
-    f = setting26
+    #f = setting26
+    # logging.basicConfig(
+    #    filename='{}.log'.format(f.__name__),
+    #    level = logging.DEBUG
+    # )
+    #f(n_jobs = 60)
     logging.basicConfig(
-       filename='{}.log'.format(f.__name__),
        level = logging.DEBUG
     )
-    f(n_jobs = 60)
+
+    parser = argparse.ArgumentParser(description = "Start a single run.")
+    parser.add_argument(
+        '-U', type = float, default = 100.0,
+        help = "Upper bound on prediction differences"
+    )
+    parser.add_argument(
+        '--nb-trees', type = int, default = 50,
+        help = "Total number of trees"
+    )
+    parser.add_argument(
+        '--nb-trees-per-ensemble', type = int, default = 50,
+        help = "Number of trees per ensemble."
+    )
+    parser.add_argument(
+        '--max-depth', type = int, default = 60,
+        help = "Number of trees per ensemble."
+    )
+    args = parser.parse_args()
+
+    single_run(
+        get_abalone,
+        losses.DP_rMSE(privacy_budget = 1.0, U = args.U),
+        losses.useful_tree_predicate,
+        dict(
+            nb_trees = args.nb_trees,
+            nb_trees_per_ensemble = args.nb_trees_per_ensemble,
+            max_depth = args.max_depth
+        )
+    )
