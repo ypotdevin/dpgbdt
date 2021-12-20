@@ -99,7 +99,7 @@ def cross_validate(
         cv = None,
     ) -> None:
     if cv is None:
-        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10),
+        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10)
     parameters = parameter_preprocessing(parameters)
     best_model = model_selection.GridSearchCV(
         estimator = dummy_estimator,
@@ -707,8 +707,8 @@ def setting22(n_jobs: int) -> None:
     )
     losses_ = [
         losses.DP_rMSE(
-            privacy_budget = 1,
-            U = 100,
+            privacy_budget = 1.0,
+            U = 40,
             seed = 42,
         )
     ]
@@ -879,27 +879,28 @@ def single_run(
         )
     )
 
-
+SETTING_DISPATCH = {
+    22 : setting22,
+    23 : setting23,
+    24 : setting24,
+    25 : setting25,
+    26 : setting26,
+    27 : setting27,
+}
 
 if __name__ == '__main__':
-    #f = setting26
-    # logging.basicConfig(
-    #    filename='{}.log'.format(f.__name__),
-    #    level = logging.DEBUG
-    # )
-    #f(n_jobs = 60)
-    logging.basicConfig(
-       level = logging.DEBUG
-    )
-
     parser = argparse.ArgumentParser(description = "Start a single run.")
+    parser.add_argument(
+        "setting", metavar='SETTING', type=int,
+        help = 'The setting to execute.'
+    )
     parser.add_argument(
         '-U', type = float, default = 100.0,
         help = "Upper bound on prediction differences"
     )
     parser.add_argument(
         '--nb-trees', type = int, default = 50,
-        help = "Total number of trees"
+        help = "Total number of trees in total."
     )
     parser.add_argument(
         '--nb-trees-per-ensemble', type = int, default = 50,
@@ -907,17 +908,31 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--max-depth', type = int, default = 60,
-        help = "Number of trees per ensemble."
+        help = "Maximal depth for every single tree."
+    )
+    parser.add_argument(
+        '--n-jobs', type = int, default = 60,
+        help = "Number of (logical) cores to use for cross validation."
     )
     args = parser.parse_args()
 
-    single_run(
-        get_abalone,
-        losses.DP_rMSE(privacy_budget = 1.0, U = args.U),
-        losses.useful_tree_predicate,
-        dict(
-            nb_trees = args.nb_trees,
-            nb_trees_per_ensemble = args.nb_trees_per_ensemble,
-            max_depth = args.max_depth
-        )
+    f = SETTING_DISPATCH[args.setting]
+    logging.basicConfig(
+       filename='{}.log'.format(f.__name__),
+       level = logging.INFO
     )
+    f(n_jobs = args.n_jobs)
+
+    # logging.basicConfig(
+    #    level = logging.DEBUG
+    # )
+    # single_run(
+    #     get_abalone,
+    #     losses.DP_rMSE(privacy_budget = 1.0, U = args.U),
+    #     losses.useful_tree_predicate,
+    #     dict(
+    #         nb_trees = args.nb_trees,
+    #         nb_trees_per_ensemble = args.nb_trees_per_ensemble,
+    #         max_depth = args.max_depth
+    #     )
+    # )
