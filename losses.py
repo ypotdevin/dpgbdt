@@ -406,10 +406,17 @@ class DP_rMSE(LeastSquaresError):# type: ignore
                 "max(abs(diffs)): %f",
                 np.max(np.abs(differences))
             )
-            return dp_rMS_cauchy(
+            loss = dp_rMS_cauchy(
                 differences, self.privacy_budget,
                 self.U, self.seed
             )
+            if loss < 0.0:
+                logger.warn(
+                    "Negative loss detected: %f. Likely cause: large negative noise "
+                    "drawn from Cauchy distribution.",
+                    loss
+                )
+            return loss
         else:
             raise NotImplementedError(
                 "DP_rMSE is not implemented if argument `sample_weight`"
