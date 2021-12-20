@@ -47,8 +47,8 @@ class GradientBoostingEnsemble:
                early_stop: int = 5,
                max_leaves: Optional[int] = None,
                min_samples_split: int = 2,
-               gradient_filtering: bool = False,
-               leaf_clipping: bool = False,
+               gradient_filtering: bool = True,
+               leaf_clipping: bool = True,
                balance_partition: bool = True,
                use_bfs: bool = False,
                use_3_trees: bool = False,
@@ -92,11 +92,12 @@ class GradientBoostingEnsemble:
           max_leaves or until it reaches maximum depth, whichever comes first.
       min_samples_split (int): Optional. The minimum number of samples required
           to split an internal node. Default is 2.
-      gradient_filtering (bool): Optional. Whether or not to perform gradient
-          based data filtering during training (only available on regression).
-          Default is False.
-      leaf_clipping (bool): Optional. Whether or not to clip the leaves
-          after training (only available on regression). Default is False.
+      gradient_filtering (bool): Optional.
+          Whether or not to perform gradient based data filtering during
+          training (only available on regression). Default is True.
+      leaf_clipping (bool): Optional.
+          Whether or not to clip the leaves after training (only
+          available on regression). Default is True.
       balance_partition (bool): Optional. Balance data repartition for training
           the trees. The default is True, meaning all trees within an ensemble
           will receive an equal amount of training samples. If set to False,
@@ -116,8 +117,11 @@ class GradientBoostingEnsemble:
           split on while building any decision tree. It is assumed, but
           not checked, that each feature array conains no duplicates.
           If not provided, use the data feature values to split on.
-      cat_idx (List): Optional. List of indices for categorical features.
-      num_idx (List): Optional. List of indices for numerical features.
+      cat_idx (List): Optional.
+          List of indices of nominal or categorical feature columns. If
+          `None`, assume no features are nomi
+      num_idx (List): Optional.
+          List of indices for numerical feature columns.
       """
     self.nb_trees = nb_trees
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
@@ -389,11 +393,6 @@ class GradientBoostingEnsemble:
 
       raw_predictions = self.Predict(X)
       current_loss = self.loss(y, raw_predictions)
-      if current_loss < 0:
-          logger.warn(
-              "Negative loss detected: %f. Likely cause: large negative"
-              "noise drawn from Cauchy distribution."
-          )
       logger.info(
           '#loss_evolution# --- fitting decision tree %d; previous loss: %f; '
           'current loss: %f',
@@ -542,7 +541,7 @@ class GradientBoostingEnsemble:
           # `rejected` and therefore it will be reachable by post-
           # processing, i.e. clipping.
           logger.debug("Not performing gradient-based data filtering")
-          mask = np.zeros(len(gradients))
+          mask = np.zeros(len(gradients), dtype = int)
 
       rng = np.random.default_rng(seed)
       # The upper bound was chosen arbitrarily. It is only important

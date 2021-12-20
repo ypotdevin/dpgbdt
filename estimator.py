@@ -32,8 +32,8 @@ class DPGBDT(BaseEstimator):  # type: ignore
                n_classes: Optional[int] = None,
                max_leaves: Optional[int] = None,
                min_samples_split: int = 2,
-               gradient_filtering: bool = False,
-               leaf_clipping: bool = False,
+               gradient_filtering: bool = True,
+               leaf_clipping: bool = True,
                balance_partition: bool = True,
                use_bfs: bool = False,
                use_3_trees: bool = False,
@@ -77,11 +77,12 @@ class DPGBDT(BaseEstimator):  # type: ignore
           max_leaves or until it reaches maximum depth, whichever comes first.
       min_samples_split (int): Optional. The minimum number of samples required
           to split an internal node. Default is 2.
-      gradient_filtering (bool): Optional. Whether or not to perform gradient
-          based data filtering during training (only available on regression).
-          Default is False.
-      leaf_clipping (bool): Optional. Whether or not to clip the leaves
-          after training (only available on regression). Default is False.
+      gradient_filtering (bool): Optional.
+          Whether or not to perform gradient based data filtering during
+          training (only available on regression). Default is False.
+      leaf_clipping (bool): Optional.
+          Whether or not to clip the leaves after training (only
+          available on regression). Default is False.
       balance_partition (bool): Optional. Balance data repartition for training
           the trees. The default is True, meaning all trees within an ensemble
           will receive an equal amount of training samples. If set to False,
