@@ -73,7 +73,8 @@ def _smooth_sensitivity(
         beta: float,
         U: float
     ) -> float:
-    assert elements.max() <= U
+    assert elements.max() <= U, \
+        "max = {} is larger than U = {}".format(elements.max(), U)
     smooth_sens = -math.inf
     for (loc_sens, dist) in _local_sensitivities(elements, U):
         smooth_sens = max(
