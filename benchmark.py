@@ -6,12 +6,13 @@
 import argparse
 import logging
 from functools import wraps
-from typing import Any, Callable, Iterable, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterable, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn import compose, metrics, model_selection, pipeline, preprocessing
-from sklearn.preprocessing import MinMaxScaler
+from sklearn import (base, compose, dummy, metrics, model_selection, pipeline,
+                     preprocessing)
+from sklearn.ensemble import GradientBoostingRegressor
 
 import estimator
 import losses
@@ -20,11 +21,13 @@ DUMMY_ESTIMATOR = estimator.DPGBDT(
     nb_trees = 0,
     nb_trees_per_ensemble = 0,
     max_depth = 0,
-    learning_rate = 0.0
+    learning_rate = 0.0,
 )
 
+logger = logging.getLogger(__name__)
 
-def get_abalone(n_rows: Optional[int] = None) -> Any:
+
+def get_abalone() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
     """Parse the abalone dataset.
 
     Args:
@@ -40,8 +43,6 @@ def get_abalone(n_rows: Optional[int] = None) -> Any:
         names=['sex', 'length', 'diameter', 'height', 'whole weight',
               'shucked weight', 'viscera weight', 'shell weight', 'rings'])
     data['sex'] = pd.get_dummies(data['sex'])
-    if n_rows:
-        data = data.head(n_rows)
     y = data.rings.values.astype(float)
     del data['rings']
     X = data.values.astype(float)
@@ -81,12 +82,68 @@ def get_adult() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
 
 def get_MSD() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
     df = pd.read_csv('training_data/MSD/year_prediction.csv')
-    X = df.drop(labels = 'label', axis = 1).values # timbre averages and covariances (floats)
+    X = df.drop(columns = 'label').values # timbre averages and covariances (floats)
     X = X[:463715] # The remaining ones are the final test set
     cat_idx = [] # type: ignore
     num_idx = list(range(X.shape[1]))
     y = df['label'].values # release year (int64)
     y = y[:463715]
+    return X, y, cat_idx, num_idx
+
+def get_concrete() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    concrete = pd.read_csv("training_data/concrete/Concrete_Data_Yeh.csv")
+    _X = concrete.drop(columns = 'csMPa').values
+    X_scaler = preprocessing.RobustScaler() # TODO: move away from here
+    X = X_scaler.fit_transform(_X)
+    cat_idx = []
+    num_idx = list(range(X.shape[1]))
+    y = concrete['csMPa'].values
+    return X, y, cat_idx, num_idx
+
+def get_wine() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    wine = pd.read_csv("training_data/wine/winequality-red.csv")
+    _X = wine.drop(columns = 'quality').values
+    X_scaler = preprocessing.RobustScaler() # TODO: move away from here
+    X = X_scaler.fit_transform(_X)
+    cat_idx = []
+    num_idx = list(range(X.shape[1]))
+    y = wine['quality'].values
+    return X, y, cat_idx, num_idx
+
+def get_sales() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    sales = pd.read_csv("training_data/sales/kc_house_data.csv")
+    sales = sales[
+        ['price', 'bedrooms', 'bathrooms', 'sqft_above', 'sqft_basement',
+        'sqft_lot', 'floors', 'waterfront', 'view', 'condition', 'grade',
+        'yr_built', 'lat', 'long']
+    ]
+    categorical_feats = sales[['waterfront', 'condition', 'grade']].values
+    oh_encoder = preprocessing.OneHotEncoder(sparse = False)
+    categorical_feats = oh_encoder.fit_transform(categorical_feats)
+    numerical_feats = sales[
+        ['bedrooms', 'bathrooms', 'sqft_above', 'sqft_basement',
+        'sqft_lot', 'floors', 'view', 'yr_built', 'lat', 'long']
+    ].values
+    num_scaler = preprocessing.RobustScaler()
+    numerical_feats = num_scaler.fit_transform(numerical_feats)
+    X = np.concatenate([categorical_feats, numerical_feats], axis = 1)
+    cat_idx = list(range(11))
+    num_idx = list(range(11, X.shape[1]))
+    y = sales['price'].values
+    return X, y, cat_idx, num_idx
+
+def get_insurance() -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    insurance = pd.read_csv("training_data/insurance/insurance.csv")
+    categorical_feats = insurance[['sex', 'smoker', 'region']].values
+    oh_encoder = preprocessing.OneHotEncoder(sparse = False)
+    categorical_feats = oh_encoder.fit_transform(categorical_feats)
+    numerical_feats = insurance[['age', 'bmi', 'children']].values
+    num_scaler = preprocessing.RobustScaler()
+    numerical_feats = num_scaler.fit_transform(numerical_feats)
+    X = np.concatenate([numerical_feats, categorical_feats], axis = 1)
+    cat_idx = list(range(3))
+    num_idx = list(range(3, X.shape[1]))
+    y = insurance['charges'].values
     return X, y, cat_idx, num_idx
 
 def cross_validate(
@@ -99,6 +156,7 @@ def cross_validate(
         cv = None,
     ) -> None:
     if cv is None:
+        logger.info("Setting up default CV (5, 10)")
         cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 10)
     parameters = parameter_preprocessing(parameters)
     best_model = model_selection.GridSearchCV(
@@ -121,15 +179,7 @@ def on_dataset(
     @wraps(cv_fun)
     def wrapper(**kwargs: dict[str, Any]) -> None:
         parameters = kwargs.pop('parameters')
-        if which == 'abalone':
-            get_ds = get_abalone
-        elif which == 'adult':
-            get_ds = get_adult
-        elif which == 'MSD':
-            get_ds = get_MSD
-        else:
-            raise ValueError("Unsupported dataset: {}".format(which))
-        X, y, cat_idx, num_idx = get_ds()
+        X, y, cat_idx, num_idx = _dataset_dispatcher(which)
         parameters = dict(
           cat_idx = [cat_idx],
           num_idx = [num_idx],
@@ -137,6 +187,23 @@ def on_dataset(
         )
         cv_fun(parameters = parameters, X = X, y = y, **kwargs)
     return wrapper
+
+def _dataset_dispatcher(
+        dataset: str
+    ) -> Tuple[np.ndarray, np.ndarray, list[int], list[int]]:
+    datasets = dict(
+        abalone = get_abalone,
+        adult = get_adult,
+        MSD = get_MSD,
+        concrete = get_concrete,
+        wine = get_wine,
+        sales = get_sales,
+        insurance = get_insurance,
+    )
+    try:
+        return datasets[dataset]() # type: ignore
+    except KeyError:
+        raise ValueError("Unsupported dataset: {}".format(dataset))
 
 def with_basic_estimator_config(
         cv_fun: Callable[..., None]
@@ -173,16 +240,16 @@ def my_cv2(
         n_jobs: int = 60,
         pipeline = None, # type: ignore
         parameter_preprocessing: Callable[[dict[str, Any]], dict[str, Any]] = None,
+        cv = None, # type: ignore
     ) -> None:
     if pipeline is None:
         pipeline = DUMMY_ESTIMATOR
     if parameter_preprocessing is None:
         parameter_preprocessing = lambda x: x
     cv_fun = cross_validate
-    cv_fun = with_basic_estimator_config(cv_fun)
     cv_fun = with_io_params(cv_fun, dataset, n_jobs)
     cv_fun = with_pipeline_params(cv_fun, pipeline, parameter_preprocessing)
-    cv_fun(parameters = parameters, filename = filename)
+    cv_fun(parameters = parameters, filename = filename, cv = cv)
 
 def with_pipeline_params(
         cv_fun: Callable[..., None],
@@ -232,7 +299,9 @@ def to_pipeline_params(params: dict[str, Any], step_prefix: str):
     }
 
 def min_max_pipeline(final_estimator):
-    return pipeline.make_pipeline(MinMaxScaler(), final_estimator)
+    return pipeline.make_pipeline(
+        preprocessing.MinMaxScaler(), final_estimator
+    )
 
 
 def cv_vanilla_gbdt() -> None:
@@ -761,6 +830,10 @@ def setting24(n_jobs: int) -> None:
         use_new_tree = [losses.keep_each_tree_predicate],
         gradient_filtering = [True],
         leaf_clipping = [True],
+        nb_trees = [50],
+        nb_trees_per_ensemble = [50],
+        max_depth = [6],
+        learning_rate = [0.1],
     )
     my_cv2(
         parameters = dfs_parameters,
@@ -787,6 +860,10 @@ def setting25(n_jobs: int) -> None:
         use_new_tree = [losses.useful_tree_predicate],
         gradient_filtering = [True],
         leaf_clipping = [True],
+        nb_trees = [50],
+        nb_trees_per_ensemble = [50],
+        max_depth = [6],
+        learning_rate = [0.1],
     )
     my_cv2(
         parameters = dfs_parameters,
@@ -809,6 +886,10 @@ def setting26(n_jobs: int) -> None:
         use_new_tree = [losses.keep_each_tree_predicate],
         gradient_filtering = [True],
         leaf_clipping = [True],
+        nb_trees = [50],
+        nb_trees_per_ensemble = [50],
+        max_depth = [6],
+        learning_rate = [0.1],
     )
     my_cv2(
         parameters = dfs_parameters,
@@ -835,6 +916,10 @@ def setting27(n_jobs: int) -> None:
         use_new_tree = [losses.useful_tree_predicate],
         gradient_filtering = [True],
         leaf_clipping = [True],
+        nb_trees = [50],
+        nb_trees_per_ensemble = [50],
+        max_depth = [6],
+        learning_rate = [0.1],
     )
     my_cv2(
         parameters = dfs_parameters,
@@ -842,6 +927,101 @@ def setting27(n_jobs: int) -> None:
         dataset = 'adult',
         n_jobs = n_jobs,
     )
+
+def setting28(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num = 9),
+        np.linspace(1.0, 5.0, num = 9),
+    )
+    losses_ = [losses.LeastSquaresError()]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.keep_each_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+        nb_trees = [5, 10, 25, 50, 100],
+        nb_trees_per_ensemble = [5, 10, 25, 50, 100],
+        max_depth = [2, 3, 5, 10, 20],
+        learning_rate = [0.01, 0.1, 1.0],
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = "setting28.csv",
+        dataset = 'concrete',
+        n_jobs = n_jobs,
+        cv = model_selection.RepeatedKFold(n_splits = 3, n_repeats = 1)
+    )
+
+def pre_setting_template(filename: str, dataset: str, n_jobs: int) -> None:
+    privacy_budget = [0.5, 1.0, 5.0]
+    losses_ = [losses.LeastSquaresError()]
+    dfs_parameters = dict(
+        privacy_budget = privacy_budget,
+        loss = losses_,
+        use_new_tree = [losses.keep_each_tree_predicate],
+        gradient_filtering = [True],
+        leaf_clipping = [True],
+        l2_threshold = [1e-2, 1e-1, 1e0, 1e1],
+        l2_lambda = [1e-3, 1e-2, 1e-1, 1e0],
+        nb_trees = [1, 10, 100, 1000],
+        nb_trees_per_ensemble = [1, 10, 100, 1000],
+        max_depth = [1, 10, 100],
+        learning_rate = [1e-3, 1e-2, 1e-1, 1e0, 1e1]
+    )
+    my_cv2(
+        parameters = dfs_parameters,
+        filename = filename,
+        dataset = dataset,
+        n_jobs = n_jobs,
+        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 1)
+    )
+
+def setting28_pre(n_jobs: int) -> None:
+    pre_setting_template("setting28_pre.csv", 'concrete', n_jobs)
+
+def setting29_pre(n_jobs: int) -> None:
+    pre_setting_template("setting29_pre.csv", 'wine', n_jobs)
+
+def setting30_pre(n_jobs: int) -> None:
+    pre_setting_template("setting30_pre.csv", 'sales', n_jobs)
+
+def setting31_pre(n_jobs: int) -> None:
+    pre_setting_template("setting31_pre.csv", 'insurance', n_jobs)
+
+def mean_baseline(dataset: str) -> None:
+    """Baseline of simply predicting the mean of the target variable."""
+    X, y, _, _ = _dataset_dispatcher(dataset)
+    X_train, X_val, y_train, y_val = model_selection.train_test_split(X, y)
+    model = dummy.DummyRegressor(strategy = "mean")
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_val)
+    rmse = metrics.mean_squared_error(
+        y_true = y_val, y_pred = y_pred, squared = False
+    )
+    print("rMSE of mean-baseline: {}".format(rmse))
+
+def gbdt_baseline(filename: str, dataset: str, n_jobs: int) -> None:
+    """Baseline of GBDT (without differential privacy)."""
+    estimator = GradientBoostingRegressor()
+    param_grid = dict(
+        learning_rate=[1e-3, 1e-2, 1e-1, 1e0, 1e1],
+        n_estimators=[1, 10, 100, 1000],
+        max_depth=[1, 10, 100],
+    )
+    best_model = model_selection.GridSearchCV(
+        estimator=estimator,
+        param_grid=param_grid,
+        scoring="neg_root_mean_squared_error",
+        n_jobs=n_jobs,
+        cv = model_selection.RepeatedKFold(n_splits = 5, n_repeats = 1)
+    )
+
+    X, y, _, _ = _dataset_dispatcher(dataset)
+    best_model.fit(X, y)
+    df = pd.DataFrame(best_model.cv_results_)
+    df.to_csv(filename)
+
 
 def single_run(
         get_dataset,
@@ -886,13 +1066,18 @@ SETTING_DISPATCH = {
     25 : setting25,
     26 : setting26,
     27 : setting27,
+    28 : setting28,
+    281 : setting28_pre,
+    291 : setting29_pre,
+    301 : setting30_pre,
+    311 : setting31_pre,
 }
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "Start a single run.")
     parser.add_argument(
         "setting", metavar='SETTING', type=int,
-        help = 'The setting to execute.'
+        help = "The setting to execute."
     )
     parser.add_argument(
         '-U', type = float, default = 100.0,
@@ -914,6 +1099,10 @@ if __name__ == '__main__':
         '--n-jobs', type = int, default = 60,
         help = "Number of (logical) cores to use for cross validation."
     )
+    parser.add_argument(
+        '--dataset', type = str, default = 'abalone',
+        help = "Dataset to use (if variable argument)"
+    )
     args = parser.parse_args()
 
     f = SETTING_DISPATCH[args.setting]
@@ -927,7 +1116,7 @@ if __name__ == '__main__':
     #    level = logging.DEBUG
     # )
     # single_run(
-    #     get_abalone,
+    #     get_concrete,
     #     losses.DP_rMSE(privacy_budget = 1.0, U = args.U),
     #     losses.useful_tree_predicate,
     #     dict(
@@ -936,3 +1125,5 @@ if __name__ == '__main__':
     #         max_depth = args.max_depth
     #     )
     # )
+
+    # baseline(args.dataset)
