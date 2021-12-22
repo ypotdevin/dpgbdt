@@ -47,8 +47,8 @@ class GradientBoostingEnsemble:
                early_stop: int = 5,
                max_leaves: Optional[int] = None,
                min_samples_split: int = 2,
-               gradient_filtering: bool = True,
-               leaf_clipping: bool = True,
+               gradient_filtering: bool = False,
+               leaf_clipping: bool = False,
                balance_partition: bool = True,
                use_bfs: bool = False,
                use_3_trees: bool = False,
@@ -94,10 +94,10 @@ class GradientBoostingEnsemble:
           to split an internal node. Default is 2.
       gradient_filtering (bool): Optional.
           Whether or not to perform gradient based data filtering during
-          training (only available on regression). Default is True.
+          training (only available on regression). Default is False.
       leaf_clipping (bool): Optional.
           Whether or not to clip the leaves after training (only
-          available on regression). Default is True.
+          available on regression). Default is False.
       balance_partition (bool): Optional. Balance data repartition for training
           the trees. The default is True, meaning all trees within an ensemble
           will receive an equal amount of training samples. If set to False,
@@ -124,6 +124,11 @@ class GradientBoostingEnsemble:
           List of indices for numerical feature columns.
       """
     self.nb_trees = nb_trees
+    if privacy_budget is not None and nb_trees_per_ensemble > nb_trees:
+        raise ValueError(
+            "Number of trees per ensemble may be at most the total "
+            "number of trees."
+        )
     self.nb_trees_per_ensemble = nb_trees_per_ensemble
     if n_classes is not None:
       raise ValueError("Classification is currently not supported (leaky).")
@@ -155,6 +160,11 @@ class GradientBoostingEnsemble:
     if self.privacy_budget is None or self.privacy_budget == 0.0:
       logger.info(
         "No privacy budget provided. Differential privacy is disabled."
+      )
+      # TODO
+      logger.warn(
+        "There are indications, that the implementation of GBDT without "
+        "differential privacy contains errors."
       )
       self.use_dp = False
     else:
