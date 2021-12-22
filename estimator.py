@@ -12,36 +12,37 @@ from losses import ClassificationLossFunction, LossFunction
 from model import GradientBoostingEnsemble
 
 
-
-
 class DPGBDT(BaseEstimator):  # type: ignore
-  """Scikit wrapper around the model."""
-  # pylint: disable=too-many-arguments, invalid-name
+    """Scikit wrapper around the model."""
 
-  def __init__(self,
-               nb_trees: int,
-               nb_trees_per_ensemble: int,
-               max_depth: int,
-               learning_rate: float,
-               privacy_budget: Optional[float] = None,
-               loss: Union[LossFunction, ClassificationLossFunction] = None,
-               l2_threshold: float = 1.0,
-               l2_lambda: float = 0.1,
-               use_new_tree: Callable[[Any, Any, float, float], bool] = None,
-               early_stop: int = 5,
-               n_classes: Optional[int] = None,
-               max_leaves: Optional[int] = None,
-               min_samples_split: int = 2,
-               gradient_filtering: bool = False,
-               leaf_clipping: bool = False,
-               balance_partition: bool = True,
-               use_bfs: bool = False,
-               use_3_trees: bool = False,
-               use_decay: bool = False,
-               splitting_grid: Optional[Sequence[Any]] = None,
-               cat_idx: Optional[List[int]] = None,
-               num_idx: Optional[List[int]] = None) -> None:
-    """Initialize the wrapper.
+    # pylint: disable=too-many-arguments, invalid-name
+
+    def __init__(
+        self,
+        nb_trees: int,
+        nb_trees_per_ensemble: int,
+        max_depth: int,
+        learning_rate: float,
+        privacy_budget: Optional[float] = None,
+        loss: Union[LossFunction, ClassificationLossFunction] = None,
+        l2_threshold: float = 1.0,
+        l2_lambda: float = 0.1,
+        use_new_tree: Callable[[Any, Any, float, float], bool] = None,
+        early_stop: int = 5,
+        n_classes: Optional[int] = None,
+        max_leaves: Optional[int] = None,
+        min_samples_split: int = 2,
+        gradient_filtering: bool = False,
+        leaf_clipping: bool = False,
+        balance_partition: bool = True,
+        use_bfs: bool = False,
+        use_3_trees: bool = False,
+        use_decay: bool = False,
+        splitting_grid: Optional[Sequence[Any]] = None,
+        cat_idx: Optional[List[int]] = None,
+        num_idx: Optional[List[int]] = None,
+    ) -> None:
+        """Initialize the wrapper.
 
     Args:
       nb_trees (int): The number of trees in the model.
@@ -105,34 +106,34 @@ class DPGBDT(BaseEstimator):  # type: ignore
       cat_idx (List): Optional. List of indices for categorical features.
       num_idx (List): Optional. List of indices for numerical features.
     """
-    self.nb_trees = nb_trees
-    self.nb_trees_per_ensemble = nb_trees_per_ensemble
-    self.max_depth = max_depth
-    self.max_leaves = max_leaves
-    self.min_samples_split = min_samples_split
-    self.gradient_filtering = gradient_filtering
-    self.leaf_clipping = leaf_clipping
-    self.learning_rate = learning_rate
-    self.privacy_budget = privacy_budget
-    self.loss = loss
-    self.l2_threshold = l2_threshold
-    self.l2_lambda = l2_lambda
-    self.use_new_tree = use_new_tree
-    self.early_stop = early_stop
-    self.n_classes = n_classes
-    self.balance_partition = balance_partition
-    self.use_bfs = use_bfs
-    self.use_3_trees = use_3_trees
-    self.use_decay = use_decay
-    self.splitting_grid = splitting_grid
-    self.cat_idx = cat_idx
-    self.num_idx = num_idx
+        self.nb_trees = nb_trees
+        self.nb_trees_per_ensemble = nb_trees_per_ensemble
+        self.max_depth = max_depth
+        self.max_leaves = max_leaves
+        self.min_samples_split = min_samples_split
+        self.gradient_filtering = gradient_filtering
+        self.leaf_clipping = leaf_clipping
+        self.learning_rate = learning_rate
+        self.privacy_budget = privacy_budget
+        self.loss = loss
+        self.l2_threshold = l2_threshold
+        self.l2_lambda = l2_lambda
+        self.use_new_tree = use_new_tree
+        self.early_stop = early_stop
+        self.n_classes = n_classes
+        self.balance_partition = balance_partition
+        self.use_bfs = use_bfs
+        self.use_3_trees = use_3_trees
+        self.use_decay = use_decay
+        self.splitting_grid = splitting_grid
+        self.cat_idx = cat_idx
+        self.num_idx = num_idx
 
-    self.model_ = None
-    self.n_features_ = None
+        self.model_ = None
+        self.n_features_ = None
 
-  def fit(self, X: np.array, y: np.array) -> 'GradientBoostingEnsemble':
-    """Fit the model to the dataset.
+    def fit(self, X: np.array, y: np.array) -> "GradientBoostingEnsemble":
+        """Fit the model to the dataset.
 
     Args:
       X (np.array): The features.
@@ -142,37 +143,37 @@ class DPGBDT(BaseEstimator):  # type: ignore
       GradientBoostingEnsemble: A GradientBoostingEnsemble object.
     """
 
-    # See https://scikit-learn.org/stable/developers/develop.html for why part
-    # of the initialization is done here instead of within `__init__`.
-    self.model_ = GradientBoostingEnsemble(
-        self.nb_trees,
-        self.nb_trees_per_ensemble,
-        n_classes=self.n_classes,
-        max_depth=self.max_depth,
-        privacy_budget=self.privacy_budget,
-        loss=self.loss,
-        l2_threshold=self.l2_threshold,
-        l2_lambda=self.l2_lambda,
-        use_new_tree=self.use_new_tree,
-        learning_rate=self.learning_rate,
-        early_stop=self.early_stop,
-        max_leaves=self.max_leaves,
-        min_samples_split=self.min_samples_split,
-        gradient_filtering=self.gradient_filtering,
-        leaf_clipping=self.leaf_clipping,
-        balance_partition=self.balance_partition,
-        use_bfs=self.use_bfs,
-        use_3_trees=self.use_3_trees,
-        use_decay=self.use_decay,
-        splitting_grid=self.splitting_grid,
-        cat_idx=self.cat_idx,
-        num_idx=self.num_idx,
-    )
-    self.n_features_ = X.shape[1]
-    return self.model_.Train(X, y)
+        # See https://scikit-learn.org/stable/developers/develop.html for why part
+        # of the initialization is done here instead of within `__init__`.
+        self.model_ = GradientBoostingEnsemble(
+            self.nb_trees,
+            self.nb_trees_per_ensemble,
+            n_classes=self.n_classes,
+            max_depth=self.max_depth,
+            privacy_budget=self.privacy_budget,
+            loss=self.loss,
+            l2_threshold=self.l2_threshold,
+            l2_lambda=self.l2_lambda,
+            use_new_tree=self.use_new_tree,
+            learning_rate=self.learning_rate,
+            early_stop=self.early_stop,
+            max_leaves=self.max_leaves,
+            min_samples_split=self.min_samples_split,
+            gradient_filtering=self.gradient_filtering,
+            leaf_clipping=self.leaf_clipping,
+            balance_partition=self.balance_partition,
+            use_bfs=self.use_bfs,
+            use_3_trees=self.use_3_trees,
+            use_decay=self.use_decay,
+            splitting_grid=self.splitting_grid,
+            cat_idx=self.cat_idx,
+            num_idx=self.num_idx,
+        )
+        self.n_features_ = X.shape[1]
+        return self.model_.Train(X, y)
 
-  def predict(self, X: np.ndarray) -> np.ndarray:
-    """Predict the label for a given dataset.
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict the label for a given dataset.
 
     Args:
       X (np.array): The dataset for which to predict values.
@@ -180,17 +181,17 @@ class DPGBDT(BaseEstimator):  # type: ignore
     Returns:
       np.array: The predictions.
     """
-    assert self.model_
-    # try classification output first, otherwise fallback to the raw regression
-    # values
-    if self.n_classes is not None:
-      assert isinstance(self.n_classes, int)
-      return self.model_.PredictLabels(X)
-    else:
-      return self.model_.Predict(X).squeeze()
+        assert self.model_
+        # try classification output first, otherwise fallback to the raw regression
+        # values
+        if self.n_classes is not None:
+            assert isinstance(self.n_classes, int)
+            return self.model_.PredictLabels(X)
+        else:
+            return self.model_.Predict(X).squeeze()
 
-  def predict_proba(self, X: np.ndarray) -> np.ndarray:
-    """Predict class probabilities for X.
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Predict class probabilities for X.
 
     Args:
       X (np.array): The dataset for which to predict values.
@@ -198,41 +199,40 @@ class DPGBDT(BaseEstimator):  # type: ignore
     Returns:
       np.array: The class probabilities of the input samples.
     """
-    assert self.model_
-    return self.model_.PredictProba(X)
+        assert self.model_
+        return self.model_.PredictProba(X)
 
-  def get_params(
-      self,
-      deep: bool = True) -> Dict[str, Any]:  # pylint: disable=unused-argument
-    """Stub for sklearn cross validation"""
-    return {
-        'privacy_budget': self.privacy_budget,
-        'loss': self.loss,
-        'l2_threshold': self.l2_threshold,
-        'l2_lambda': self.l2_lambda,
-        'nb_trees': self.nb_trees,
-        'nb_trees_per_ensemble': self.nb_trees_per_ensemble,
-        'max_depth': self.max_depth,
-        'learning_rate': self.learning_rate,
-        'use_new_tree': self.use_new_tree,
-        'early_stop': self.early_stop,
-        'n_classes': self.n_classes,
-        'max_leaves': self.max_leaves,
-        'min_samples_split': self.min_samples_split,
-        'gradient_filtering': self.gradient_filtering,
-        'leaf_clipping': self.leaf_clipping,
-        'balance_partition': self.balance_partition,
-        'use_bfs': self.use_bfs,
-        'use_3_trees': self.use_3_trees,
-        'use_decay': self.use_decay,
-        'splitting_grid': self.splitting_grid,
-        'cat_idx': self.cat_idx,
-        'num_idx': self.num_idx
-    }
+    def get_params(
+        self, deep: bool = True
+    ) -> Dict[str, Any]:  # pylint: disable=unused-argument
+        """Stub for sklearn cross validation"""
+        return {
+            "privacy_budget": self.privacy_budget,
+            "loss": self.loss,
+            "l2_threshold": self.l2_threshold,
+            "l2_lambda": self.l2_lambda,
+            "nb_trees": self.nb_trees,
+            "nb_trees_per_ensemble": self.nb_trees_per_ensemble,
+            "max_depth": self.max_depth,
+            "learning_rate": self.learning_rate,
+            "use_new_tree": self.use_new_tree,
+            "early_stop": self.early_stop,
+            "n_classes": self.n_classes,
+            "max_leaves": self.max_leaves,
+            "min_samples_split": self.min_samples_split,
+            "gradient_filtering": self.gradient_filtering,
+            "leaf_clipping": self.leaf_clipping,
+            "balance_partition": self.balance_partition,
+            "use_bfs": self.use_bfs,
+            "use_3_trees": self.use_3_trees,
+            "use_decay": self.use_decay,
+            "splitting_grid": self.splitting_grid,
+            "cat_idx": self.cat_idx,
+            "num_idx": self.num_idx,
+        }
 
-  def set_params(self,
-                 **parameters: Dict[str, Any]) -> 'DPGBDT':
-    """Stub for sklearn cross validation"""
-    for parameter, value in parameters.items():
-      setattr(self, parameter, value)
-    return self
+    def set_params(self, **parameters: Dict[str, Any]) -> "DPGBDT":
+        """Stub for sklearn cross validation"""
+        for parameter, value in parameters.items():
+            setattr(self, parameter, value)
+        return self

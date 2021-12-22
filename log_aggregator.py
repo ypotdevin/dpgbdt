@@ -4,74 +4,68 @@ from io import StringIO
 from typing import Callable, Iterable, Optional, Sequence, TypeVar
 import pandas as pd
 
-T = TypeVar('T')  # Can be anything
+T = TypeVar("T")  # Can be anything
+
 
 def stripped_lines(filename: str) -> Iterable[str]:
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         for line in file:
             yield line.strip()
+
 
 def filter_lines(substring: str, lines: Iterable[str]) -> Iterable[str]:
     for line in lines:
         if substring in line:
             yield line
 
-def strip_prefix_from_lines(
-        prefix: str,
-        lines: Iterable[str]) -> Iterable[str]:
+
+def strip_prefix_from_lines(prefix: str, lines: Iterable[str]) -> Iterable[str]:
     for line in lines:
         yield line.removeprefix(prefix)
 
-def split_lines(
-        separator: str,
-        lines: Iterable[str]) -> Iterable[Sequence[str]]:
+
+def split_lines(separator: str, lines: Iterable[str]) -> Iterable[Sequence[str]]:
     for line in lines:
-        yield line.split(sep = separator)
+        yield line.split(sep=separator)
+
 
 def process_parts(
-        processing_fun: Callable[[str], str],
-        parts_iter: Iterable[Sequence[str]]
-    ) -> Iterable[Sequence[str]]:
+    processing_fun: Callable[[str], str], parts_iter: Iterable[Sequence[str]]
+) -> Iterable[Sequence[str]]:
     for parts in parts_iter:
         yield [processing_fun(part) for part in parts]
 
-def join_parts(
-        parts_iter: Iterable[Sequence[str]],
-        sep: str = ',') -> Iterable[str]:
+
+def join_parts(parts_iter: Iterable[Sequence[str]], sep: str = ",") -> Iterable[str]:
     for parts in parts_iter:
         yield sep.join(parts)
 
+
 def to_dataframe(
-        lines: Iterable[str],
-        names: Sequence[str],
-        index_col: Optional[str] = None,
-        sep: str = ',') -> pd.DataFrame:
-    lines = StringIO('\n'.join(lines))
-    df = pd.read_csv(
-        lines,
-        sep = sep,
-        header = None,
-        names = names,
-        index_col = index_col
-    )
+    lines: Iterable[str],
+    names: Sequence[str],
+    index_col: Optional[str] = None,
+    sep: str = ",",
+) -> pd.DataFrame:
+    lines = StringIO("\n".join(lines))
+    df = pd.read_csv(lines, sep=sep, header=None, names=names, index_col=index_col)
     return df
+
 
 def loss_evolution_extractor(filename: str) -> pd.DataFrame:
     lines = stripped_lines(filename)
     lines = filter_lines("#loss_evolution#", lines)
     lines = strip_prefix_from_lines(
-        "INFO:model:#loss_evolution# --- fitting decision ",
-        lines
+        "INFO:model:#loss_evolution# --- fitting decision ", lines
     )
-    parts_iter = split_lines(';', lines)
+    parts_iter = split_lines(";", lines)
     parts_iter = process_parts(loss_evolution_worker, parts_iter)
     lines = join_parts(parts_iter)
     df = to_dataframe(
-        lines,
-        names = ['tree_idx', 'prev_loss', 'current_loss'],
-        index_col = 'tree_idx'
+        lines, names=["tree_idx", "prev_loss", "current_loss"], index_col="tree_idx"
     )
     return df
+
 
 def loss_evolution_worker(part: str) -> str:
     part = part.lstrip()
@@ -82,36 +76,30 @@ def loss_evolution_worker(part: str) -> str:
     elif part.startswith("current loss: "):
         return part.removeprefix("current loss: ")
     else:
-        raise ValueError(
-            "String part was not as expected. Part: {}".format(part)
-        )
+        raise ValueError("String part was not as expected. Part: {}".format(part))
+
 
 def tree_evolution_extractor(filename: str) -> pd.DataFrame:
     lines = stripped_lines(filename)
     lines = filter_lines("#tree_evolution#", lines)
-    lines = strip_prefix_from_lines(
-        "INFO:model:#tree_evolution# --- ensemble ",
-        lines
-    )
+    lines = strip_prefix_from_lines("INFO:model:#tree_evolution# --- ensemble ", lines)
     parts_iter = split_lines(" decision tree ", lines)
     parts_iter = process_parts(tree_evolution_worker, parts_iter)
     lines = join_parts(parts_iter)
-    df = to_dataframe(
-        lines,
-        names = ['included?', 'tree_idx'],
-        index_col = 'tree_idx'
-    )
+    df = to_dataframe(lines, names=["included?", "tree_idx"], index_col="tree_idx")
     return df
 
+
 def tree_evolution_worker(part: str) -> str:
-    if part == 'includes':
+    if part == "includes":
         return "True"
-    elif part == 'excludes':
+    elif part == "excludes":
         return "False"
     else:
         return part
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     df = loss_evolution_extractor("in_depth_analysis_1.log")
     print(df)
     df = tree_evolution_extractor("in_depth_analysis_1.log")
