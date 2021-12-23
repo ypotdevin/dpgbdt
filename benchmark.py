@@ -906,11 +906,9 @@ def setting28(n_jobs: int) -> None:
 
 
 def pre_setting_template(filename: str, dataset: str, n_jobs: int) -> None:
-    privacy_budget = [0.5, 1.0, 5.0]
-    losses_ = [losses.LeastSquaresError()]
     dfs_parameters = dict(
-        privacy_budget=privacy_budget,
-        loss=losses_,
+        privacy_budget=[0.5, 1.0, 5.0],
+        loss=[losses.LeastSquaresError()],
         use_new_tree=[losses.keep_each_tree_predicate],
         gradient_filtering=[True],
         leaf_clipping=[True],
