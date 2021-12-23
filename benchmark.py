@@ -6,12 +6,11 @@
 import argparse
 import logging
 from functools import wraps
-from typing import Any, Callable, Iterable, Optional, Tuple
+from typing import Any, Callable, Iterable, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn import (
-    base,
     compose,
     dummy,
     metrics,

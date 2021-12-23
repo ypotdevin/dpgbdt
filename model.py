@@ -12,9 +12,7 @@ from queue import Queue
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 import numpy as np
-from numpy.lib.function_base import append
 from scipy.special import logsumexp
-from sklearn import model_selection
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 
