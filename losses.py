@@ -56,6 +56,14 @@ def useful_tree_predicate(
     return current_loss < previous_loss
 
 
+def pos_loss_useful_tree( # TODO: Renaming
+    y: Any, raw_predictions: Any, previous_loss: float, current_loss: float
+) -> bool:
+    """Like `useful_tree_predicate`, but discards negative current_loss.
+    """
+    return (current_loss >= 0) and (current_loss < previous_loss)
+
+
 class ClippedLeastSquaresError(LeastSquaresError):  # type: ignore
     """Loss function for clipped least squares (LS) estimation.
 
@@ -407,14 +415,3 @@ class DP_rMSE(LeastSquaresError):  # type: ignore
 
     def __repr__(self) -> str:
         return "DP-rMSE(privacy_budget={},U={})".format(self.privacy_budget, self.U)
-
-
-LOSS_FUNCTIONS = {
-    "ls": LeastSquaresError,
-    "c_ls": ClippedLeastSquaresError,
-    "expq_ls": RootExpQLeastSquaresError,
-    "bin_dev": BinomialDeviance,
-    "c_bin_dev": ClippedBinomialDeviance,
-    "mul_dev": MultinomialDeviance,
-    "c_mul_dev": ClippedMultinomialDeviance,
-}

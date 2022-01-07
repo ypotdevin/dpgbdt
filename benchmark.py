@@ -943,6 +943,9 @@ def setting30_pre(n_jobs: int) -> None:
 def setting31_pre(n_jobs: int) -> None:
     pre_setting_template("setting31_pre.csv", "insurance", n_jobs)
 
+def setting32_pre(n_jobs: int) -> None:
+    pre_setting_template("setting32_pre.csv", "abalone", n_jobs)
+
 
 def mean_baseline(dataset: str) -> None:
     """Baseline of simply predicting the mean of the target variable."""
@@ -1017,6 +1020,7 @@ SETTING_DISPATCH = {
     291: setting29_pre,
     301: setting30_pre,
     311: setting31_pre,
+    321: setting32_pre,
 }
 
 if __name__ == "__main__":
