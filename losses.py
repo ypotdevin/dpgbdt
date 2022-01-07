@@ -407,14 +407,3 @@ class DP_rMSE(LeastSquaresError):  # type: ignore
 
     def __repr__(self) -> str:
         return "DP-rMSE(privacy_budget={},U={})".format(self.privacy_budget, self.U)
-
-
-LOSS_FUNCTIONS = {
-    "ls": LeastSquaresError,
-    "c_ls": ClippedLeastSquaresError,
-    "expq_ls": RootExpQLeastSquaresError,
-    "bin_dev": BinomialDeviance,
-    "c_bin_dev": ClippedBinomialDeviance,
-    "mul_dev": MultinomialDeviance,
-    "c_mul_dev": ClippedMultinomialDeviance,
-}
