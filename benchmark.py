@@ -880,31 +880,6 @@ def setting27(n_jobs: int) -> None:
     )
 
 
-def setting28(n_jobs: int) -> None:
-    privacy_budget = np.append(
-        np.linspace(0.1, 0.9, num=9), np.linspace(1.0, 5.0, num=9),
-    )
-    losses_ = [losses.LeastSquaresError()]
-    dfs_parameters = dict(
-        privacy_budget=privacy_budget,
-        loss=losses_,
-        use_new_tree=[losses.keep_each_tree_predicate],
-        gradient_filtering=[True],
-        leaf_clipping=[True],
-        nb_trees=[5, 10, 25, 50, 100],
-        nb_trees_per_ensemble=[5, 10, 25, 50, 100],
-        max_depth=[2, 3, 5, 10, 20],
-        learning_rate=[0.01, 0.1, 1.0],
-    )
-    my_cv2(
-        parameters=dfs_parameters,
-        filename="setting28.csv",
-        dataset="concrete",
-        n_jobs=n_jobs,
-        cv=model_selection.RepeatedKFold(n_splits=3, n_repeats=1),
-    )
-
-
 def pre_setting_template(filename: str, dataset: str, n_jobs: int) -> None:
     dfs_parameters = dict(
         privacy_budget=[0.5, 1.0, 5.0],
@@ -932,8 +907,108 @@ def setting28_pre(n_jobs: int) -> None:
     pre_setting_template("setting28_pre.csv", "concrete", n_jobs)
 
 
+def setting28_intermediate(n_jobs: int) -> None:
+    dfs_parameters = dict(
+        privacy_budget=[1.0],
+        loss=[losses.LeastSquaresError()],
+        use_new_tree=[losses.keep_each_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        l2_threshold=[5, 10, 20],
+        l2_lambda=[0.05, 0.1, 0.2],
+        nb_trees=[5, 10, 20],
+        nb_trees_per_ensemble=[5, 10, 20],
+        max_depth=[5, 10, 20],
+        learning_rate=[0.05, 0.1, 0.2],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting28_intmed.csv",
+        dataset="concrete",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=1),
+    )
+
+
+def setting28(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num=9), np.linspace(1.0, 5.0, num=5),
+    )
+    losses_ = [losses.LeastSquaresError()]
+    dfs_parameters = dict(
+        privacy_budget=privacy_budget,
+        loss=losses_,
+        use_new_tree=[losses.keep_each_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        nb_trees=[20],
+        nb_trees_per_ensemble=[20],
+        max_depth=[10],
+        learning_rate=[0.05],
+        l2_lambda=[0.1],
+        l2_threshold=[10],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting28.csv",
+        dataset="concrete",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=10),
+    )
+
+
 def setting29_pre(n_jobs: int) -> None:
     pre_setting_template("setting29_pre.csv", "wine", n_jobs)
+
+
+def setting29_intermediate(n_jobs: int) -> None:
+    dfs_parameters = dict(
+        privacy_budget=[1.0],
+        loss=[losses.LeastSquaresError()],
+        use_new_tree=[losses.keep_each_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        l2_threshold=[0.5, 1.0, 2.0],
+        l2_lambda=[0.05, 0.1, 0.2],
+        nb_trees=[50, 100, 200],
+        nb_trees_per_ensemble=[50, 100, 200],
+        max_depth=[5, 10, 20],
+        learning_rate=[0.005, 0.01, 0.02],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting29_intmed.csv",
+        dataset="wine",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=1),
+    )
+
+
+def setting29(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num=9), np.linspace(1.0, 5.0, num=5),
+    )
+    losses_ = [losses.LeastSquaresError()]
+    dfs_parameters = dict(
+        privacy_budget=privacy_budget,
+        loss=losses_,
+        use_new_tree=[losses.keep_each_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        nb_trees=[200],
+        nb_trees_per_ensemble=[200],
+        max_depth=[5],
+        learning_rate=[0.01],
+        l2_lambda=[0.2],
+        l2_threshold=[0.5],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting29.csv",
+        dataset="wine",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=10),
+    )
 
 
 def setting30_pre(n_jobs: int) -> None:
@@ -943,8 +1018,86 @@ def setting30_pre(n_jobs: int) -> None:
 def setting31_pre(n_jobs: int) -> None:
     pre_setting_template("setting31_pre.csv", "insurance", n_jobs)
 
+
+def setting31_intermediate(n_jobs: int) -> None:
+    dfs_parameters = dict(
+        privacy_budget=[1.0],
+        loss=[losses.LeastSquaresError()],
+        use_new_tree=[losses.keep_each_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        l2_threshold=[5, 10, 20],
+        l2_lambda=[0.5, 1.0, 2.0],
+        nb_trees=[500, 1000],
+        nb_trees_per_ensemble=[5, 10, 20],
+        max_depth=[5, 10, 20],
+        learning_rate=[0.005, 0.01, 0.05, 0.1, 0.2],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting31_intmed.csv",
+        dataset="insurance",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=1),
+    )
+
+
 def setting32_pre(n_jobs: int) -> None:
     pre_setting_template("setting32_pre.csv", "abalone", n_jobs)
+
+
+def setting33(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num=9), np.linspace(1.0, 5.0, num=5),
+    )
+    losses_ = [losses.DP_rMSE(privacy_budget=1.0, U=200, seed=42,)]
+    dfs_parameters = dict(
+        privacy_budget=privacy_budget,
+        loss=losses_,
+        use_new_tree=[losses.useful_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        nb_trees=[20],
+        nb_trees_per_ensemble=[20],
+        max_depth=[10],
+        learning_rate=[0.05],
+        l2_lambda=[0.1],
+        l2_threshold=[10.0],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting33.csv",
+        dataset="concrete",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=10),
+    )
+
+
+def setting34(n_jobs: int) -> None:
+    privacy_budget = np.append(
+        np.linspace(0.1, 0.9, num=9), np.linspace(1.0, 5.0, num=5),
+    )
+    losses_ = [losses.DP_rMSE(privacy_budget=1.0, U=4.0, seed=42,)]
+    dfs_parameters = dict(
+        privacy_budget=privacy_budget,
+        loss=losses_,
+        use_new_tree=[losses.useful_tree_predicate],
+        gradient_filtering=[True],
+        leaf_clipping=[True],
+        nb_trees=[200],
+        nb_trees_per_ensemble=[200],
+        max_depth=[5],
+        learning_rate=[0.01],
+        l2_lambda=[0.2],
+        l2_threshold=[0.5],
+    )
+    my_cv2(
+        parameters=dfs_parameters,
+        filename="setting34.csv",
+        dataset="wine",
+        n_jobs=n_jobs,
+        cv=model_selection.RepeatedKFold(n_splits=5, n_repeats=10),
+    )
 
 
 def mean_baseline(dataset: str) -> None:
@@ -1017,10 +1170,16 @@ SETTING_DISPATCH = {
     27: setting27,
     28: setting28,
     281: setting28_pre,
+    2812: setting28_intermediate,
+    29: setting29,
     291: setting29_pre,
+    2912: setting29_intermediate,
     301: setting30_pre,
     311: setting31_pre,
+    3112: setting31_intermediate,
     321: setting32_pre,
+    33: setting33,
+    34: setting34,
 }
 
 if __name__ == "__main__":
@@ -1044,6 +1203,15 @@ if __name__ == "__main__":
         "--max-depth", type=int, default=60, help="Maximal depth for every single tree."
     )
     parser.add_argument(
+        "--lr", type=float, default=0.1, help="Learning rate of boosting."
+    )
+    parser.add_argument(
+        "--l2-lambda", type=float, default=0.1,
+    )
+    parser.add_argument(
+        "--l2-threshold", type=float, default=1.0,
+    )
+    parser.add_argument(
         "--n-jobs",
         type=int,
         default=60,
@@ -1061,18 +1229,19 @@ if __name__ == "__main__":
     logging.basicConfig(filename="{}.log".format(f.__name__), level=logging.INFO)
     f(n_jobs=args.n_jobs)
 
-    # logging.basicConfig(
-    #    level = logging.DEBUG
-    # )
+    # logging.basicConfig(level=logging.DEBUG)
     # single_run(
-    #     get_concrete,
-    #     losses.DP_rMSE(privacy_budget = 1.0, U = args.U),
+    #     get_wine,
+    #     losses.DP_rMSE(privacy_budget=1.0, U=args.U),
     #     losses.useful_tree_predicate,
     #     dict(
-    #         nb_trees = args.nb_trees,
-    #         nb_trees_per_ensemble = args.nb_trees_per_ensemble,
-    #         max_depth = args.max_depth
-    #     )
+    #         nb_trees=args.nb_trees,
+    #         nb_trees_per_ensemble=args.nb_trees_per_ensemble,
+    #         max_depth=args.max_depth,
+    #         learning_rate=args.lr,
+    #         l2_lambda=args.l2_lambda,
+    #         l2_threshold=args.l2_threshold,
+    #     ),
     # )
 
     # baseline(args.dataset)
